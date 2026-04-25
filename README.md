@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/gerberdelta)](https://pypi.org/project/gerberdelta/)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
-Geometry-aware Gerber/Excellon diff tool -- compare two revisions of a PCB design and highlight what changed.
+Visual raster diff tool for Gerber/Excellon PCB design files -- compare two revisions of a PCB design and highlight what changed.
 
 ## Installation
 

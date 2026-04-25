@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "gerberdelta"
 version = "0.20.0"
-description = "Geometry-aware Gerber/Excellon diff tool"
+description = "Visual raster diff tool for Gerber/Excellon PCB design files"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
