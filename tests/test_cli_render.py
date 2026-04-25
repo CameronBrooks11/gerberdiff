@@ -9,9 +9,7 @@ from click.testing import CliRunner, Result
 
 from gerberdelta.cli import cli
 
-_FIXTURES = Path(
-    "_reference_gerberdelta_electron/tests/fixtures/gerbers-before/gerbers-before"
-)
+_FIXTURES = Path("tests/fixtures/gerbers-before")
 _FCU = _FIXTURES / "A64-OlinuXino-F.Cu.gbr"
 _NPTH = _FIXTURES / "A64-OlinuXino-NPTH.drl"
 

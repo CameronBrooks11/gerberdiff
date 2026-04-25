@@ -7,9 +7,7 @@ import pytest
 from gerberdelta.parse.gerber_state import parse_gerber
 from gerberdelta.types import ApertureType, DiagnosticSeverity, Polarity
 
-_FIXTURES = Path(
-    "_reference_gerberdelta_electron/tests/fixtures/gerbers-before/gerbers-before"
-)
+_FIXTURES = Path("tests/fixtures/gerbers-before")
 
 
 def test_parse_minimal() -> None:

@@ -7,9 +7,7 @@ import pytest
 from gerberdelta.parse.excellon_parser import parse_excellon
 from gerberdelta.types import ApertureState, ApertureType, DiagnosticSeverity
 
-_FIXTURES = Path(
-    "_reference_gerberdelta_electron/tests/fixtures/gerbers-before/gerbers-before"
-)
+_FIXTURES = Path("tests/fixtures/gerbers-before")
 
 
 def test_parse_minimal_excellon() -> None:

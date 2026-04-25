@@ -33,14 +33,7 @@ from gerberdelta.types import (
     StepAndRepeat,
 )
 
-_FIXTURES = (
-    Path(__file__).parent.parent
-    / "_reference_gerberdelta_electron"
-    / "tests"
-    / "fixtures"
-    / "gerbers-before"
-    / "gerbers-before"
-)
+_FIXTURES = Path(__file__).parent / "fixtures" / "gerbers-before"
 
 _FCU = _FIXTURES / "A64-OlinuXino-F.Cu.gbr"
 

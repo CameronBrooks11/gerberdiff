@@ -12,12 +12,8 @@ from gerberdelta.diff.layer_matcher import (
     match_layers,
 )
 
-_FIXTURES_BEFORE = Path(
-    "_reference_gerberdelta_electron/tests/fixtures/gerbers-before/gerbers-before"
-)
-_FIXTURES_AFTER = Path(
-    "_reference_gerberdelta_electron/tests/fixtures/gerbers-after/gerbers-after"
-)
+_FIXTURES_BEFORE = Path("tests/fixtures/gerbers-before")
+_FIXTURES_AFTER = Path("tests/fixtures/gerbers-after")
 
 
 # ---------------------------------------------------------------------------
