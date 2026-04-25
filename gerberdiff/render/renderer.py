@@ -1,4 +1,4 @@
-﻿"""Two-pass rasteriser: compile ParsedImage -> render to a Cairo surface.
+"""Two-pass rasteriser: compile ParsedImage -> render to a Cairo surface.
 
 Usage
 -----
@@ -33,6 +33,8 @@ from gerberdiff.render.compiled_render import (
     MacroFlash,
     RegionGroup,
     StrokeBatch,
+)
+from gerberdiff.render.compiled_render import (
     compile_render as compile_render,
 )
 from gerberdiff.render.draw_ops import (

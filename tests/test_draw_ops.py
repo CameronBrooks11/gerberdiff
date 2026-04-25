@@ -204,7 +204,11 @@ def _count_lit_pixels(surface: cairo.ImageSurface, w: int, h: int) -> int:
     return int(np.sum(buf[:, :, 3] > 0))
 
 
-def _stroke_surface(aperture: CircleAperture | RectangleAperture | ObroundAperture | PolygonAperture, width: int = 100, height: int = 100) -> int:
+def _stroke_surface(
+    aperture: CircleAperture | RectangleAperture | ObroundAperture | PolygonAperture,
+    width: int = 100,
+    height: int = 100,
+) -> int:
     """Return the number of lit pixels when stroking a horizontal line."""
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
     ctx = cairo.Context(surface)
