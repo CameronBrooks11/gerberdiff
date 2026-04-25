@@ -108,21 +108,50 @@ gerberdelta diff before/ after/ --align-offset 0.5,0    # shift board B by 0.5 i
 
 ```python
 import gerberdelta
+from pathlib import Path
 
-# Parse
+# Parse a single file
 img = gerberdelta.parse_gerber(Path("board.gbr").read_text())
 img = gerberdelta.parse_excellon(Path("board.drl").read_text())
 
-# Render to numpy array (H, W, 4) uint8 BGRA
-from gerberdelta.render.viewport import compute_viewport
-vp = compute_viewport(img.bounding_box, width=1024, height=1024)
+# Render to a numpy array -- shape (H, W, 4) uint8 BGRA
+vp = gerberdelta.compute_viewport(img.bounding_box, width=1024, height=1024)
 arr = gerberdelta.render_to_numpy(img, vp)
 
-# Diff two revisions
+# Render to a cairocffi ImageSurface (use when you need cairo drawing operations)
+surface = gerberdelta.render_to_surface(img, vp)
+
+# Diff two single-layer images (returns SingleLayerDiff)
 before = gerberdelta.parse_gerber(Path("before/F.Cu.gbr").read_text())
 after  = gerberdelta.parse_gerber(Path("after/F.Cu.gbr").read_text())
 diff = gerberdelta.compute_diff(before, after, width=1024, height=1024)
 print(f"{diff.changed_pixel_count} changed pixels across {len(diff.regions)} regions")
+
+# Diff two full layer directories (returns DiffResult)
+result = gerberdelta.compute_full_diff(
+    Path("before/"),
+    Path("after/"),
+    width=2048,
+    height=2048,
+    alignment_offset=None,   # optional (dx, dy) in inches to shift the after image
+    min_pixel_count=4,       # ignore regions smaller than this
+    merge_tolerance=0.05,    # merge nearby regions within this many inches
+)
+print(f"has_changes={result.has_changes}, layers={len(result.layers)}")
+for layer in result.layers:
+    print(f"  {layer.name}: {layer.changed_pixel_count} px changed ({layer.status})")
+```
+
+All public types are importable from the root package:
+
+```python
+from gerberdelta import (
+    ParsedImage, BoundingBox, Viewport,
+    DiffResult, LayerDiffResult, SingleLayerDiff, Region,
+    LayerPair, LayerType, LayerStatus,
+    Diagnostic, DiagnosticSeverity,
+    GerberParseError,
+)
 ```
 
 ## Known limitations

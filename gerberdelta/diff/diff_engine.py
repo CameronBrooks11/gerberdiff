@@ -18,9 +18,10 @@ the ``ParsedImage`` IR convention.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from dataclasses import replace as dc_replace
+from pathlib import Path
 
 import numpy as np
 from scipy.ndimage import center_of_mass, find_objects
@@ -33,7 +34,17 @@ from gerberdelta.render.viewport import (
     merge_bounding_boxes,
     screen_to_world,
 )
-from gerberdelta.types import BoundingBox, ParsedImage, Region
+from gerberdelta.types import (
+    BoundingBox,
+    Diagnostic,
+    DiagnosticSeverity,
+    DiffResult,
+    GerberParseError,
+    LayerDiffResult,
+    LayerStatus,
+    ParsedImage,
+    Region,
+)
 
 # ---------------------------------------------------------------------------
 # Result container
@@ -108,6 +119,138 @@ def compute_diff(
         changed_pixel_count=int(mask.sum()),
         total_pixel_count=width * height,
     )
+
+
+def compute_full_diff(
+    before_dir: Path,
+    after_dir: Path,
+    *,
+    width: int = 2048,
+    height: int = 2048,
+    layers: Sequence[str] | None = None,
+    alignment_offset: tuple[float, float] | None = None,
+    min_pixel_count: int = 4,
+    merge_tolerance: float = 0.05,
+    overlay_callback: Callable[[str, np.ndarray, np.ndarray, np.ndarray], None] | None = None,
+    on_diagnostic: Callable[[Path, Diagnostic], None] | None = None,
+) -> DiffResult:
+    """Diff two directories of Gerber/Excellon layer files.
+
+    Parameters
+    ----------
+    before_dir, after_dir:
+        Directories containing the before and after layer files.
+    width, height:
+        Canvas dimensions in pixels.
+    layers:
+        If given, only layers whose names appear in this sequence are diffed.
+    alignment_offset:
+        Optional ``(dx, dy)`` inch translation applied to *after_dir* images
+        before diffing.
+    min_pixel_count:
+        Minimum pixel count for a region to be reported.
+    merge_tolerance:
+        Bounding-box padding (inches) used when merging nearby regions.
+    overlay_callback:
+        Called with ``(layer_name, arr_a, arr_b, xor)`` for each matched
+        layer.  Use this to write per-layer overlay PNGs without keeping all
+        arrays live simultaneously.
+    on_diagnostic:
+        Called with ``(path, diagnostic)`` for every non-fatal diagnostic
+        (``Warning`` and ``Info`` severity) encountered while parsing.
+
+    Raises
+    ------
+    GerberParseError
+        When a file contains a fatal (``Error``-severity) parse diagnostic.
+    OSError
+        When a layer file cannot be read.
+    """
+    # Lazy imports: keep parse/ and diff/layer_matcher out of the module-load
+    # critical path for callers that only use compute_diff.
+    from gerberdelta.diff.layer_matcher import EXCELLON_SUFFIXES, match_layers
+    from gerberdelta.parse.excellon_parser import parse_excellon
+    from gerberdelta.parse.gerber_state import parse_gerber
+
+    def _parse(path: Path) -> ParsedImage:
+        content = path.read_text(errors="replace")
+        if path.suffix.lower() in EXCELLON_SUFFIXES:
+            img = parse_excellon(content, source_path=path)
+        else:
+            img = parse_gerber(content, source_path=path)
+        for diag in img.diagnostics:
+            if diag.severity == DiagnosticSeverity.Error:
+                raise GerberParseError(path, diag.message, diag.line)
+            if on_diagnostic is not None:
+                on_diagnostic(path, diag)
+        return img
+
+    pairs = match_layers(before_dir, after_dir)
+    if layers is not None:
+        pairs = [p for p in pairs if p.name in layers]
+
+    layer_results: list[LayerDiffResult] = []
+
+    for pair in pairs:
+        total_px = width * height
+
+        if pair.status in (LayerStatus.Added, LayerStatus.Removed):
+            src_path = pair.after_path if pair.status == LayerStatus.Added else pair.before_path
+            assert src_path is not None  # invariant guaranteed by match_layers
+            _parse(src_path)  # validate file and surface diagnostics
+            lr = LayerDiffResult(
+                name=pair.name,
+                status=pair.status,
+                layer_type=pair.layer_type,
+                changed_pixel_count=total_px,
+                total_pixel_count=total_px,
+                regions=[],
+            )
+        else:
+            assert pair.before_path is not None and pair.after_path is not None
+            img_a = _parse(pair.before_path)
+            img_b = _parse(pair.after_path)
+
+            layer_ov_cb: Callable[[np.ndarray, np.ndarray, np.ndarray], None] | None = None
+            if overlay_callback is not None:
+                name = pair.name
+
+                def _wrap(
+                    a: np.ndarray,
+                    b: np.ndarray,
+                    x: np.ndarray,
+                    _n: str = name,
+                ) -> None:
+                    overlay_callback(_n, a, b, x)
+
+                layer_ov_cb = _wrap
+
+            result = compute_diff(
+                img_a,
+                img_b,
+                width=width,
+                height=height,
+                alignment_offset=alignment_offset,
+                min_pixel_count=min_pixel_count,
+                merge_tolerance=merge_tolerance,
+                overlay_callback=layer_ov_cb,
+            )
+            lr = LayerDiffResult(
+                name=pair.name,
+                status=LayerStatus.Matched,
+                layer_type=pair.layer_type,
+                changed_pixel_count=result.changed_pixel_count,
+                total_pixel_count=result.total_pixel_count,
+                regions=result.regions,
+            )
+
+        layer_results.append(lr)
+
+    has_changes = any(
+        lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
+        for lr in layer_results
+    )
+    return DiffResult(layers=layer_results, has_changes=has_changes)
 
 
 # ---------------------------------------------------------------------------

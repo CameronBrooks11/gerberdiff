@@ -9,7 +9,7 @@ import click
 
 from gerberdelta import __version__
 from gerberdelta.diff.layer_matcher import EXCELLON_SUFFIXES
-from gerberdelta.types import DiagnosticSeverity, LayerStatus
+from gerberdelta.types import Diagnostic, DiagnosticSeverity, LayerStatus
 
 _MEMORY_WARN_PIXELS = 16_777_216  # 4096^2
 
@@ -249,15 +249,10 @@ def diff_cmd(
     verbose: bool,
 ) -> None:
     """Compare two directories of Gerber/Excellon layer files."""
-    import time
-
-    from gerberdelta.diff.diff_engine import compute_diff
-    from gerberdelta.diff.layer_matcher import match_layers
+    from gerberdelta.diff.diff_engine import compute_full_diff
     from gerberdelta.export.json_report import write_report
     from gerberdelta.export.png_export import build_overlay_png
-    from gerberdelta.parse.excellon_parser import parse_excellon
-    from gerberdelta.parse.gerber_state import parse_gerber
-    from gerberdelta.types import DiffResult, LayerDiffResult, ParsedImage
+    from gerberdelta.types import GerberParseError
 
     # Parse --align-offset
     try:
@@ -267,7 +262,8 @@ def diff_cmd(
             alignment_offset = None
     except ValueError:
         click.echo(
-            "error: --align-offset must be two comma-separated floats (e.g. '0.5,0')", err=True
+            "error: --align-offset must be two comma-separated floats (e.g. '0.5,0')",
+            err=True,
         )
         sys.exit(2)
 
@@ -280,145 +276,70 @@ def diff_cmd(
             err=True,
         )
 
-    # Match layers
-    pairs = match_layers(before_dir, after_dir)
-    if layers:
-        pairs = [p for p in pairs if p.name in layers]
+    def _overlay_cb(
+        layer_name: str,
+        arr_a: object,
+        arr_b: object,
+        xor: object,
+    ) -> None:
+        import numpy as _np
 
-    layer_results: list[LayerDiffResult] = []
+        png_path = out_png_dir / f"{layer_name}_diff.png"  # type: ignore[operator]
+        build_overlay_png(
+            _np.asarray(arr_a),
+            _np.asarray(arr_b),
+            _np.asarray(xor),
+            png_path,
+            show_common=png_show_common,
+            overwrite=overwrite,
+        )
+
+    def _on_diagnostic(path: Path, diag: Diagnostic) -> None:
+        loc = f" (line {diag.line})" if diag.line else ""
+        if diag.severity == DiagnosticSeverity.Warning and not quiet:
+            click.echo(f"warning: {path.name}: {diag.message}{loc}", err=True)
+        elif diag.severity == DiagnosticSeverity.Info and verbose:
+            click.echo(f"info: {path.name}: {diag.message}", err=True)
+
     t_start = time.perf_counter()
 
-    for pair in pairs:
-        t_layer = time.perf_counter()
-
-        # Added / removed layers: report 100% changed without rendering both.
-        if pair.status in (LayerStatus.Added, LayerStatus.Removed):
-            src_path = pair.after_path if pair.status == LayerStatus.Added else pair.before_path
-            if src_path is None:
-                click.echo(
-                    f"error: {pair.name}: {pair.status} layer has no associated path",
-                    err=True,
-                )
-                sys.exit(2)
-            try:
-                content = src_path.read_text(errors="replace")
-            except OSError as exc:
-                click.echo(f"error: {exc}", err=True)
-                sys.exit(1)
-            if src_path.suffix.lower() in EXCELLON_SUFFIXES:
-                img = parse_excellon(content, source_path=src_path)
-            else:
-                img = parse_gerber(content, source_path=src_path)
-            total_px = width * height
-            lr = LayerDiffResult(
-                name=pair.name,
-                status=pair.status,
-                layer_type=pair.layer_type,
-                changed_pixel_count=total_px,
-                total_pixel_count=total_px,
-                regions=[],
-            )
-            layer_results.append(lr)
-            if verbose:
-                click.echo(f"  {pair.name}: {pair.status} (100% changed)")
-            continue
-
-        # Matched layers: full diff
-        if pair.before_path is None or pair.after_path is None:
-            click.echo(
-                f"error: {pair.name}: matched layer is missing before or after path",
-                err=True,
-            )
-            sys.exit(2)
-
-        def _parse(path: Path) -> ParsedImage:
-            try:
-                content = path.read_text(errors="replace")
-            except OSError as exc:
-                click.echo(f"error: {exc}", err=True)
-                sys.exit(1)
-            if path.suffix.lower() in EXCELLON_SUFFIXES:
-                return parse_excellon(content, source_path=path)
-            return parse_gerber(content, source_path=path)
-
-        img_a = _parse(pair.before_path)
-        img_b = _parse(pair.after_path)
-
-        # Abort on parse errors.
-        for img, path in ((img_a, pair.before_path), (img_b, pair.after_path)):
-            for diag in img.diagnostics:
-                loc = f" (line {diag.line})" if diag.line else ""
-                if diag.severity == DiagnosticSeverity.Error:
-                    click.echo(f"error: {path.name}: {diag.message}{loc}", err=True)
-                    sys.exit(2)
-                elif diag.severity == DiagnosticSeverity.Warning and not quiet:
-                    click.echo(f"warning: {path.name}: {diag.message}{loc}", err=True)
-
-        # PNG overlay per matched layer
-        if out_png_dir is not None:
-            png_path = out_png_dir / f"{pair.name}_diff.png"
-
-            def _write_overlay(
-                arr_a: object,
-                arr_b: object,
-                xor: object,
-                _path: Path = png_path,
-            ) -> None:
-                import numpy as _np
-
-                try:
-                    build_overlay_png(
-                        _np.asarray(arr_a),
-                        _np.asarray(arr_b),
-                        _np.asarray(xor),
-                        _path,
-                        show_common=png_show_common,
-                        overwrite=overwrite,
-                    )
-                except FileExistsError as exc:
-                    click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
-                    sys.exit(1)
-
-            overlay_cb = _write_overlay
-        else:
-            overlay_cb = None
-
-        result = compute_diff(
-            img_a,
-            img_b,
+    try:
+        diff_result = compute_full_diff(
+            before_dir,
+            after_dir,
             width=width,
             height=height,
+            layers=layers if layers else None,
             alignment_offset=alignment_offset,
             min_pixel_count=min_pixels,
             merge_tolerance=merge_tolerance,
-            overlay_callback=overlay_cb,
+            overlay_callback=_overlay_cb if out_png_dir is not None else None,
+            on_diagnostic=_on_diagnostic,
         )
+    except GerberParseError as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(2)
+    except FileExistsError as exc:
+        click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
+        sys.exit(1)
+    except OSError as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
 
-        lr = LayerDiffResult(
-            name=pair.name,
-            status=LayerStatus.Matched,
-            layer_type=pair.layer_type,
-            changed_pixel_count=result.changed_pixel_count,
-            total_pixel_count=result.total_pixel_count,
-            regions=result.regions,
-        )
-        layer_results.append(lr)
+    elapsed_total = time.perf_counter() - t_start
 
-        if verbose:
-            elapsed_layer = time.perf_counter() - t_layer
+    # Verbose per-layer output
+    if verbose:
+        for lr in diff_result.layers:
             click.echo(
-                f"  {pair.name}: {result.changed_pixel_count} changed px, "
-                f"{len(result.regions)} regions  ({elapsed_layer * 1000:.0f} ms)"
+                f"  {lr.name}: {lr.changed_pixel_count} changed px, "
+                f"{len(lr.regions)} regions"
             )
-            for region in result.regions:
+            for region in lr.regions:
                 click.echo(
                     f"    region {region.id}: {region.pixel_count} px  "
                     f"centroid=({region.centroid_x:.4f}, {region.centroid_y:.4f})"
                 )
-
-    # Build DiffResult
-    has_changes = any(lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched for lr in layer_results)
-    diff_result = DiffResult(layers=layer_results, has_changes=has_changes)
 
     # JSON report
     if out_json is not None:
@@ -428,21 +349,21 @@ def diff_cmd(
             click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
             sys.exit(1)
 
-    elapsed_total = time.perf_counter() - t_start
-
-    # Terminal summary
+    elapsed_ms = f"({elapsed_total * 1000:.0f} ms)"
     if not quiet:
         changed_layers = sum(
-            1 for lr in layer_results if lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
+            1
+            for lr in diff_result.layers
+            if lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
         )
         click.echo(
-            f"diff: {changed_layers}/{len(layer_results)} layers changed  "
-            f"({elapsed_total * 1000:.0f} ms)"
+            f"diff: {changed_layers}/{len(diff_result.layers)} layers changed  "
+            f"{elapsed_ms}"
         )
         if out_json:
             click.echo(f"report: {out_json}")
 
-    sys.exit(1 if fail_on_diff and has_changes else 0)
+    sys.exit(1 if fail_on_diff and diff_result.has_changes else 0)
 
 
 if __name__ == "__main__":

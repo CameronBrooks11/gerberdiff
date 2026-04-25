@@ -334,3 +334,23 @@ class DiffResult:
     has_changes: bool  # stored field; set by caller (CLI / compute_diff).
     # Not a @property: added/removed layers must also drive has_changes=True,
     # regardless of pixel count, so the CLI owns the computation.
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+
+class GerberParseError(Exception):
+    """Raised by ``compute_full_diff`` when a fatal parse error is encountered.
+
+    Attributes
+    ----------
+    path : Path
+        The file that triggered the error.
+    """
+
+    def __init__(self, path: Path, message: str, line: int | None = None) -> None:
+        self.path = path
+        loc = f" (line {line})" if line is not None else ""
+        super().__init__(f"{path.name}: {message}{loc}")
