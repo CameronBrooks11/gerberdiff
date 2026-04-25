@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from gerberdiff.parse.gerber_state import parse_gerber
-from gerberdiff.render.compiled_render import BlockFlash, compile_render
+from gerberdiff.render.compiled_render import BlockFlash, CompiledRender, compile_render
 from gerberdiff.render.renderer import render_to_numpy, render_to_surface
 from gerberdiff.render.viewport import compute_viewport
 from gerberdiff.types import (
@@ -344,17 +345,17 @@ def test_step_and_repeat_renders_multiple_copies() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_block_aperture_compile_render_called_once(monkeypatch) -> None:
+def test_block_aperture_compile_render_called_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """compile_render must be called exactly once per unique BlockAperture."""
     import gerberdiff.render.renderer as _rmod
 
     call_count = 0
     _original = _rmod.compile_render
 
-    def _counting(*args, **kwargs):
+    def _counting(parsed_image: ParsedImage) -> CompiledRender:
         nonlocal call_count
         call_count += 1
-        return _original(*args, **kwargs)
+        return _original(parsed_image)
 
     # Clear the cache so this test starts fresh.
     _rmod._block_compile_cache.clear()

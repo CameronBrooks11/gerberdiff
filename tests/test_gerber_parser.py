@@ -78,6 +78,7 @@ def test_parse_format_statement_invalid() -> None:
 def test_parse_aperture_definition_circle() -> None:
     result = parse_aperture_definition("ADD10C,0.1", UnitType.Inch, {})
     assert result is not None
+    assert not isinstance(result, str)
     d_code, ap = result
     assert d_code == 10
     assert isinstance(ap, CircleAperture)
@@ -89,6 +90,7 @@ def test_parse_aperture_definition_circle() -> None:
 def test_parse_aperture_definition_circle_with_hole() -> None:
     result = parse_aperture_definition("ADD15C,0.5X0.2", UnitType.Inch, {})
     assert result is not None
+    assert not isinstance(result, str)
     _, ap = result
     assert isinstance(ap, CircleAperture)
     assert abs(ap.diameter - 0.5) < 1e-9
@@ -99,6 +101,7 @@ def test_parse_aperture_definition_circle_with_hole() -> None:
 def test_parse_aperture_definition_rectangle() -> None:
     result = parse_aperture_definition("ADD11R,0.4X0.2", UnitType.Inch, {})
     assert result is not None
+    assert not isinstance(result, str)
     _, ap = result
     assert isinstance(ap, RectangleAperture)
     assert abs(ap.width - 0.4) < 1e-9
@@ -108,6 +111,7 @@ def test_parse_aperture_definition_rectangle() -> None:
 def test_parse_aperture_definition_obround() -> None:
     result = parse_aperture_definition("ADD12O,0.3X0.1", UnitType.Inch, {})
     assert result is not None
+    assert not isinstance(result, str)
     _, ap = result
     assert isinstance(ap, ObroundAperture)
     assert abs(ap.width - 0.3) < 1e-9
@@ -116,6 +120,7 @@ def test_parse_aperture_definition_obround() -> None:
 def test_parse_aperture_definition_polygon() -> None:
     result = parse_aperture_definition("ADD13P,0.5X6X45", UnitType.Inch, {})
     assert result is not None
+    assert not isinstance(result, str)
     _, ap = result
     assert isinstance(ap, PolygonAperture)
     assert abs(ap.outer_diameter - 0.5) < 1e-9
@@ -127,6 +132,7 @@ def test_parse_aperture_definition_mm_unit_scale() -> None:
     # 25.4 mm diameter should become 1.0 inch
     result = parse_aperture_definition("ADD10C,25.4", UnitType.Millimeter, {})
     assert result is not None
+    assert not isinstance(result, str)
     _, ap = result
     assert isinstance(ap, CircleAperture)
     assert abs(ap.diameter - 1.0) < 1e-9

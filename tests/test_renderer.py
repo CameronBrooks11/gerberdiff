@@ -479,7 +479,7 @@ def test_ls_scale_changes_pixel_count() -> None:
     )
     bb = BoundingBox()
     bb.expand(0.0, 0.0, 0.1)
-    apertures = {ap_code: CircleAperture(diameter=0.1)}
+    apertures: dict[int, Aperture] = {ap_code: CircleAperture(diameter=0.1)}
     vp = Viewport(width=64, height=64, pan_x=32.0, pan_y=32.0, zoom=200.0)
 
     def _render_with_scale(s: float) -> int:
@@ -535,7 +535,7 @@ def test_clear_polarity_erases_geometry() -> None:
     )
     bb = BoundingBox()
     bb.expand(0.0, 0.0, 0.1)
-    apertures = {ap_code: CircleAperture(diameter=0.1)}
+    apertures: dict[int, Aperture] = {ap_code: CircleAperture(diameter=0.1)}
     vp = Viewport(width=64, height=64, pan_x=32.0, pan_y=32.0, zoom=300.0)
 
     # Dark only: has lit pixels

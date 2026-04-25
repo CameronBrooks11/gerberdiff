@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import cairocffi as cairo
 import numpy as np
+import pytest
 
 from gerberdiff.parse.macro_parser import parse_macro_body
 from gerberdiff.render.macro_renderer import compute_macro_bounding_radius, draw_macro_flash
@@ -189,17 +190,15 @@ def test_bounding_radius_none_macro() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_draw_macro_flash_evaluation_failure_emits_warning(monkeypatch) -> None:
+def test_draw_macro_flash_evaluation_failure_emits_warning(monkeypatch: pytest.MonkeyPatch) -> None:
     """When evaluate_macro_primitives raises, a UserWarning must be emitted."""
-    import pytest
-
     import gerberdiff.render.macro_renderer as _mod
 
     macro = parse_macro_body("C", "1,1,0.05,0,0,0")
     aperture = MacroAperture(macro_def=macro, params=[], unit_scale=1.0)
     ctx, _ = _make_ctx()
 
-    def _raise(*_a, **_kw):
+    def _raise(*_a: object, **_kw: object) -> None:
         raise ValueError("simulated evaluation failure")
 
     monkeypatch.setattr(_mod, "evaluate_macro_primitives", _raise)
