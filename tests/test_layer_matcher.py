@@ -213,7 +213,7 @@ def test_match_layers_fixture_layer_types() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4.2 — InCu regex: false-positive prevention
+# 4.2 -- InCu regex: false-positive prevention
 # ---------------------------------------------------------------------------
 
 
@@ -237,6 +237,6 @@ def test_classify_incu_no_false_positive_no_digit() -> None:
 
 
 def test_classify_incu_no_false_positive_incoming() -> None:
-    """'incoming.Cu' contains 'in'+'cu' but no inner-layer pattern — must not be InCu."""
+    """'incoming.Cu' contains 'in'+'cu' but no inner-layer pattern -- must not be InCu."""
     result = classify_layer(Path("incoming.Cu.gbr"))
     assert result != LayerType.InCu, f"'incoming.Cu' should not be InCu, got {result}"

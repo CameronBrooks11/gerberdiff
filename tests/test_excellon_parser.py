@@ -103,31 +103,31 @@ def test_apply_format_decimal_passthrough() -> None:
 
 
 def test_apply_format_metric_lz_33() -> None:
-    """METRIC,LZ 3.3: leading zeros suppressed → left-pad then insert decimal."""
-    # 5.000 mm → file stores "5000" (leading "00" suppressed)
+    """METRIC,LZ 3.3: leading zeros suppressed -> left-pad then insert decimal."""
+    # 5.000 mm -> file stores "5000" (leading "00" suppressed)
     spec = _spec(UnitType.Millimeter, "LZ", 3, 3)
     assert abs(_apply_format("5000", spec)[0] - 5.0) < 1e-9
-    # 10.000 mm → file stores "10000" (leading "0" suppressed)
+    # 10.000 mm -> file stores "10000" (leading "0" suppressed)
     assert abs(_apply_format("10000", spec)[0] - 10.0) < 1e-9
-    # 0.500 mm → file stores "500" (leading "000" suppressed but none present)
+    # 0.500 mm -> file stores "500" (leading "000" suppressed but none present)
     assert abs(_apply_format("500", spec)[0] - 0.5) < 1e-9
 
 
 def test_apply_format_inch_tz_24() -> None:
-    """INCH,TZ 2.4: trailing zeros suppressed → right-pad then insert decimal."""
-    # 1.0 inch → full "010000" → file stores "01" (4 trailing zeros suppressed)
+    """INCH,TZ 2.4: trailing zeros suppressed -> right-pad then insert decimal."""
+    # 1.0 inch -> full "010000" -> file stores "01" (4 trailing zeros suppressed)
     spec = _spec(UnitType.Inch, "TZ", 2, 4)
     assert abs(_apply_format("01", spec)[0] - 1.0) < 1e-9
-    # 2.0 inch → "02"
+    # 2.0 inch -> "02"
     assert abs(_apply_format("02", spec)[0] - 2.0) < 1e-9
-    # 0.1234 inch → "001234" (no trailing zeros to suppress)
+    # 0.1234 inch -> "001234" (no trailing zeros to suppress)
     assert abs(_apply_format("001234", spec)[0] - 0.1234) < 1e-9
 
 
 def test_apply_format_negative_coords() -> None:
     """Negative integer-format coordinates round-trip correctly."""
     spec = _spec(UnitType.Millimeter, "LZ", 3, 3)
-    # -5.000 mm → "-5000"
+    # -5.000 mm -> "-5000"
     assert abs(_apply_format("-5000", spec)[0] - -5.0) < 1e-9
 
 
@@ -141,7 +141,7 @@ def test_apply_format_zero() -> None:
 
 def test_apply_format_oversized_field_truncates_and_warns() -> None:
     """An oversized coordinate field is truncated and produces a Warning diagnostic."""
-    # METRIC,LZ 3.3 expects 6 digits max; supply 8 → truncation
+    # METRIC,LZ 3.3 expects 6 digits max; supply 8 -> truncation
     content = "M48\nFMAT,2\nMETRIC,LZ\nT01C0.800\n%\nT01\nX12345678Y0\nM30\n"
     img = parse_excellon(content)
     warnings = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Warning]
@@ -155,7 +155,7 @@ def test_apply_format_oversized_field_truncates_and_warns() -> None:
 
 def test_excellon_integer_format_metric_lz_inline() -> None:
     """METRIC,LZ 3.3: integer coordinates are decoded to the correct mm values."""
-    # X5000Y10000: LZ pad-left to 6: 005000 → 005.000 mm, 010000 → 010.000 mm
+    # X5000Y10000: LZ pad-left to 6: 005000 -> 005.000 mm, 010000 -> 010.000 mm
     content = "M48\nFMAT,2\nMETRIC,LZ\nT01C0.800\n%\nT01\nX5000Y10000\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
@@ -167,7 +167,7 @@ def test_excellon_integer_format_metric_lz_inline() -> None:
 
 def test_excellon_integer_format_inch_tz_inline() -> None:
     """INCH,TZ 2.4: integer coordinates are decoded to the correct inch values."""
-    # X01Y02: TZ pad-right to 6: 010000 → 01.0000 = 1.0 inch, 020000 → 2.0 inch
+    # X01Y02: TZ pad-right to 6: 010000 -> 01.0000 = 1.0 inch, 020000 -> 2.0 inch
     content = "M48\nFMAT,2\nINCH,TZ\nT01C0.031\n%\nT01\nX01Y02\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
@@ -186,7 +186,7 @@ def test_excellon_integer_format_decimal_overrides_spec() -> None:
 
 def test_excellon_integer_format_negative_coords() -> None:
     """Negative integer-format coordinates round-trip correctly end-to-end."""
-    # METRIC,LZ 3.3: X-5000Y-10000 → -005.000 mm, -010.000 mm
+    # METRIC,LZ 3.3: X-5000Y-10000 -> -005.000 mm, -010.000 mm
     content = "M48\nFMAT,2\nMETRIC,LZ\nT01C0.800\n%\nT01\nX-5000Y-10000\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
@@ -196,7 +196,7 @@ def test_excellon_integer_format_negative_coords() -> None:
 
 def test_excellon_explicit_digit_counts_in_header() -> None:
     """METRIC,LZ,0000.0000 overrides the 3.3 default with 4.4 digit counts."""
-    # X50000 with LZ 4.4: pad-left to 8 → 00050000 → 0005.0000 mm = 5.0 mm
+    # X50000 with LZ 4.4: pad-left to 8 -> 00050000 -> 0005.0000 mm = 5.0 mm
     content = "M48\nFMAT,2\nMETRIC,LZ,0000.0000\nT01C0.800\n%\nT01\nX50000Y100000\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
@@ -220,7 +220,7 @@ def test_excellon_integer_format_metric_lz_fixture() -> None:
     img = parse_excellon(fixture.read_text(), source_path=fixture)
     assert len(img.draw_ops) == 2
     assert img.bounding_box.is_valid
-    # T01 hit: X5000Y10000 → 5.0 mm, 10.0 mm → inches
+    # T01 hit: X5000Y10000 -> 5.0 mm, 10.0 mm -> inches
     op = _op(img.draw_ops)
     assert abs(op.stop_x - 5.0 / 25.4) < 1e-6
     assert abs(op.stop_y - 10.0 / 25.4) < 1e-6
@@ -234,7 +234,7 @@ def test_excellon_integer_format_inch_tz_fixture() -> None:
     img = parse_excellon(fixture.read_text(), source_path=fixture)
     assert len(img.draw_ops) == 2
     assert img.bounding_box.is_valid
-    # T01 hit: X01Y02 → 1.0 inch, 2.0 inch (already in inches, no conversion)
+    # T01 hit: X01Y02 -> 1.0 inch, 2.0 inch (already in inches, no conversion)
     op = _op(img.draw_ops)
     assert abs(op.stop_x - 1.0) < 1e-6
     assert abs(op.stop_y - 2.0) < 1e-6

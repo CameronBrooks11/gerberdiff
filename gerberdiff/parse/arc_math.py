@@ -145,8 +145,8 @@ def arc_bounding_box(arc: ArcSegment, aperture_radius: float = 0.0) -> BoundingB
     lo = min(arc.start_angle_deg, arc.end_angle_deg)
     hi = max(arc.start_angle_deg, arc.end_angle_deg)
 
-    # For each axis extremum (0°, 90°, 180°, 270°), check whether any integer
-    # multiple of 360° shifted copy of that angle falls in [lo, hi].  If so,
+    # For each axis extremum (0deg, 90deg, 180deg, 270deg), check whether any integer
+    # multiple of 360deg shifted copy of that angle falls in [lo, hi].  If so,
     # the arc passes through that extremum and we must expand the bbox.
     for axis_angle in (0.0, 90.0, 180.0, 270.0):
         k_start = math.ceil((lo - axis_angle) / 360.0)

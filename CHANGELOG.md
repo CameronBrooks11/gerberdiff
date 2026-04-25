@@ -31,14 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `diff/layer_matcher.py`, which remains the single source of truth.
 
 - **`_flush_macro` exception severity upgraded to `Error`** -- a failed
-  `parse_macro_body` call (e.g. non-integer variable index `$notanint=…`)
+  `parse_macro_body` call (e.g. non-integer variable index `$notanint=...`)
   was silently recorded as a `Warning` with `# pragma: no cover`. It is now
   recorded as `DiagnosticSeverity.Error`, the `# pragma: no cover` tag is
   removed, and a test exercises this path.
 
 - **Fixture paths in tests use `__file__`-relative construction** -- all
-  ten `Path("tests/fixtures/…")` occurrences across seven test files are
-  replaced with `Path(__file__).parent / "fixtures" / "…"`. Tests now pass
+  ten `Path("tests/fixtures/...")` occurrences across seven test files are
+  replaced with `Path(__file__).parent / "fixtures" / "..."`. Tests now pass
   regardless of the working directory from which pytest is invoked.
 
 - **`--align-offset` Y direction corrected** -- positive `DY` now shifts
@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`SingleLayerDiff` no longer stores raw pixel arrays** -- `arr_a`, `arr_b`,
-  and `xor` (three `~48 MB` numpy arrays at 2048²) have been removed from the
+  and `xor` (three `~48 MB` numpy arrays at 2048^2) have been removed from the
   dataclass. Callers that need a PNG overlay pass an `overlay_callback:
 Callable[[ndarray, ndarray, ndarray], None]` to `compute_diff()`; the callback
   is invoked before the arrays are released. The diff CLI uses this callback to
@@ -120,11 +120,11 @@ saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
 ### Fixed
 
 - **Cairo layer transform order** (`renderer.py`) -- reversed the three
-  conditional blocks in `_render_layer` from scale→rotation→mirror to
-  mirror→rotation→scale in code order. Cairo post-multiplies each call into the
+  conditional blocks in `_render_layer` from scale->rotation->mirror to
+  mirror->rotation->scale in code order. Cairo post-multiplies each call into the
   CTM, so the last call in code is the first transform applied to coordinates;
-  the previous order applied transforms to coordinates as mirror→rotation→scale
-  instead of the RS-274X §4.9-specified scale→rotation→mirror. A new test
+  the previous order applied transforms to coordinates as mirror->rotation->scale
+  instead of the RS-274X sec.4.9-specified scale->rotation->mirror. A new test
   (`test_layer_transform_order_rotation_plus_mirror`) uses a rotation+mirror
   combination to verify the centroid of rendered pixels lands in the correct
   screen quadrant.
@@ -140,10 +140,10 @@ saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
   has explicit `case ObroundAperture()` and `case PolygonAperture()` branches
   before `case _:`. Both use `LINE_CAP_ROUND`; obround uses `min(width, height)`
   and polygon uses `outer_diameter`. The previous fallback rendered these valid
-  D01 aperture types as a 25 µm hairline, producing near-invisible strokes.
+  D01 aperture types as a 25 um hairline, producing near-invisible strokes.
   Two new tests verify the corrected apertures produce > 200 lit pixels.
 
-- **CLI `assert` → explicit error handling** (`cli.py`) -- replaced three
+- **CLI `assert` -> explicit error handling** (`cli.py`) -- replaced three
   `assert` statements in `diff_cmd` that guarded against missing paths on
   added/removed/matched layers with `click.echo(..., err=True)` + `sys.exit(2)`
   checks. `assert` is stripped by `python -O`; the new checks work under all
@@ -175,9 +175,9 @@ saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
 - **Domain model rename** -- `Net` renamed to `DrawOp` and `NetState` renamed to `CoordState`
   throughout the codebase. The term "net" belongs to EDA net-list semantics; the IR types
   represent drawing primitives and coordinate-system snapshots, not electrical nets.
-  - `ParsedImage.nets` → `draw_ops`
-  - `ParsedImage.net_states` → `coord_states`
-  - `BlockAperture.nets` → `draw_ops`
+  - `ParsedImage.nets` -> `draw_ops`
+  - `ParsedImage.net_states` -> `coord_states`
+  - `BlockAperture.nets` -> `draw_ops`
     All public and internal references updated; import order re-sorted (ruff I001).
 
 ## [0.14.0] - 2026-04-25

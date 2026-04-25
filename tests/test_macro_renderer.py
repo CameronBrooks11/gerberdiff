@@ -214,7 +214,7 @@ def test_draw_macro_flash_evaluation_failure_emits_warning(monkeypatch) -> None:
 
 
 def test_macro_flash_mm_unit_scale_renders_smaller() -> None:
-    """unit_scale=1/25.4 (mm→inch) renders a smaller circle than unit_scale=1.0."""
+    """unit_scale=1/25.4 (mm->inch) renders a smaller circle than unit_scale=1.0."""
     macro = parse_macro_body("C", "1,1,0.05,0,0,0")  # 0.05" radius circle
 
     aperture_full = MacroAperture(macro_def=macro, params=[], unit_scale=1.0)

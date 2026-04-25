@@ -235,7 +235,7 @@ def test_block_aperture_does_not_leak_macro_definition() -> None:
 def test_block_aperture_does_not_leak_unit_change() -> None:
     # %MOMM% inside the block must not change the parent unit.
     # In parent (inch), a coordinate of X100000 with FSLAX25Y25 = 1.0 inch.
-    # If unit leaked as mm, it would be / 25.4 ≈ 0.0394 inch.
+    # If unit leaked as mm, it would be / 25.4 ~ 0.0394 inch.
     gerber = (
         "%FSLAX25Y25*%%MOIN*%"
         "%ADD10C,0.001*%"
@@ -261,7 +261,7 @@ def test_block_aperture_does_not_leak_unit_change() -> None:
 def test_arc_net_expands_bounding_box_beyond_chord() -> None:
     # 180-degree CCW arc from (1,0) to (-1,0) centred at origin.
     # The top of the arc is at y=1; the chord midpoint is at y=0.
-    # The bounding box must include y≈1.0 (the arc peak).
+    # The bounding box must include y~1.0 (the arc peak).
     # G75 multi-quadrant, G03 CCW, aperture radius 0.
     # I=-1, J=0 means centre = start + (I,J) = (1,0)+(-1,0) = (0,0). Correct.
     # FSLAX25Y25 with MOIN: 1 inch = 100000 units.
@@ -271,13 +271,13 @@ def test_arc_net_expands_bounding_box_beyond_chord() -> None:
         "D10*"
         "G75*G03*"
         "X100000Y0D02*"  # move to start (1,0)
-        "X-100000Y0I-100000J0D01*"  # 180° CCW arc to (-1,0)
+        "X-100000Y0I-100000J0D01*"  # 180deg CCW arc to (-1,0)
         "M02*"
     )
     img = parse_gerber(gerber)
     assert img.bounding_box.is_valid
     assert img.bounding_box.max_y > 0.9, (
-        f"arc bbox max_y={img.bounding_box.max_y:.4f} should be ~1.0 for 180° arc"
+        f"arc bbox max_y={img.bounding_box.max_y:.4f} should be ~1.0 for 180deg arc"
     )
 
 
@@ -288,8 +288,8 @@ def test_arc_net_expands_bounding_box_beyond_chord() -> None:
 
 def test_sr_bounding_box_covers_all_instances() -> None:
     # SRX3Y1I1.0J0.0: 3 instances spaced 1 inch apart along X.
-    # A flash at (0,0) with 3 instances → last instance at (2,0).
-    # BBox must extend to at least x≈2.0.
+    # A flash at (0,0) with 3 instances -> last instance at (2,0).
+    # BBox must extend to at least x~2.0.
     gerber = "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%%SRX3Y1I100000J0*%D10*X0Y0D03*%SR*%M02*"
     img = parse_gerber(gerber)
     assert img.bounding_box.is_valid
@@ -327,7 +327,7 @@ def test_sr_close_preserves_polarity() -> None:
 
 
 def test_aperture_forward_reference_unknown_macro_emits_error() -> None:
-    # Reference a macro that was never defined → Error severity.
+    # Reference a macro that was never defined -> Error severity.
     gerber = "%FSLAX25Y25*%%MOIN*%%ADD10NOTDEFINED,1.0*%M02*"
     img = parse_gerber(gerber)
     errors = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Error]
@@ -337,7 +337,7 @@ def test_aperture_forward_reference_unknown_macro_emits_error() -> None:
 
 
 def test_aperture_malformed_definition_emits_warning_not_error() -> None:
-    # A definition that can't be parsed at all (no D-code) → Warning, not Error.
+    # A definition that can't be parsed at all (no D-code) -> Warning, not Error.
     gerber = "%FSLAX25Y25*%%MOIN*%%ADGARBAGE*%M02*"
     img = parse_gerber(gerber)
     errors = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Error]
@@ -359,8 +359,8 @@ def test_incremental_mode_accumulates_coordinates() -> None:
         "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%"
         "D10*"
         "G01*G91*"  # linear, incremental
-        "X10000Y00000D01*"  # move +0.1 inch from (0,0) → stop at (0.1, 0.0)
-        "X10000Y00000D01*"  # move +0.1 inch from (0.1,0) → stop at (0.2, 0.0)
+        "X10000Y00000D01*"  # move +0.1 inch from (0,0) -> stop at (0.1, 0.0)
+        "X10000Y00000D01*"  # move +0.1 inch from (0.1,0) -> stop at (0.2, 0.0)
         "M02*"
     )
     img = parse_gerber(gerber)
@@ -372,7 +372,7 @@ def test_incremental_mode_accumulates_coordinates() -> None:
     assert ops[1].stop_x > ops[0].stop_x, (
         f"incremental: second stop_x ({ops[1].stop_x}) should exceed first ({ops[0].stop_x})"
     )
-    assert abs(ops[1].stop_x - 0.2) < 1e-6, f"expected stop_x≈0.2 inch, got {ops[1].stop_x}"
+    assert abs(ops[1].stop_x - 0.2) < 1e-6, f"expected stop_x~0.2 inch, got {ops[1].stop_x}"
 
 
 def test_incremental_mode_returns_to_absolute_on_G90() -> None:
@@ -381,9 +381,9 @@ def test_incremental_mode_returns_to_absolute_on_G90() -> None:
         "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%"
         "D10*"
         "G91*"  # incremental
-        "X10000Y00000D01*"  # incremental move +0.1 → stop at (0.1, 0)
+        "X10000Y00000D01*"  # incremental move +0.1 -> stop at (0.1, 0)
         "G90*"  # back to absolute
-        "X10000Y00000D01*"  # absolute move to (0.1, 0) → stop_x = 0.1 (not 0.2)
+        "X10000Y00000D01*"  # absolute move to (0.1, 0) -> stop_x = 0.1 (not 0.2)
         "M02*"
     )
     img = parse_gerber(gerber)
@@ -393,7 +393,7 @@ def test_incremental_mode_returns_to_absolute_on_G90() -> None:
     assert len(ops) >= 2
     # After G90, the second move is absolute: stop at exactly X=0.1 (same as first)
     assert abs(ops[1].stop_x - 0.1) < 1e-6, (
-        f"after G90 expected stop_x≈0.1 (absolute), got {ops[1].stop_x}"
+        f"after G90 expected stop_x~0.1 (absolute), got {ops[1].stop_x}"
     )
 
 

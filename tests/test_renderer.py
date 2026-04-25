@@ -277,7 +277,7 @@ def test_render_consistent_with_viewport() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3.1 — Cairo layer transform order (RS-274X §4.9)
+# 3.1 -- Cairo layer transform order (RS-274X sec.4.9)
 # ---------------------------------------------------------------------------
 
 
@@ -308,13 +308,13 @@ def _flash_at(x: float, y: float, layer: LayerState | None = None) -> ParsedImag
 
 
 def test_layer_transform_order_rotation_plus_mirror() -> None:
-    """RS-274X §4.9: coordinates transform as scale→rotation→mirror.
+    """RS-274X sec.4.9: coordinates transform as scale->rotation->mirror.
 
-    A flash at (0.5, 0.0) with rotation=90° and mirror=FlipA:
-      Correct order  (applied to coords): scale(noop)→rotate90→flipA
-        (0.5,0) → rotate90 → (0,0.5) → flipA (x→-x) → (0,0.5) → screen y < 50
-      Wrong order (applied to coords): flipA→rotate90→scale
-        (0.5,0) → flipA → (-0.5,0) → rotate90 → (0,-0.5) → screen y > 50
+    A flash at (0.5, 0.0) with rotation=90deg and mirror=FlipA:
+      Correct order  (applied to coords): scale(noop)->rotate90->flipA
+        (0.5,0) -> rotate90 -> (0,0.5) -> flipA (x->-x) -> (0,0.5) -> screen y < 50
+      Wrong order (applied to coords): flipA->rotate90->scale
+        (0.5,0) -> flipA -> (-0.5,0) -> rotate90 -> (0,-0.5) -> screen y > 50
     """
     # Fixed viewport: origin at pixel (50,50), 40 px/inch.
     vp = Viewport(width=100, height=100, pan_x=50.0, pan_y=50.0, zoom=40.0)
@@ -322,10 +322,10 @@ def test_layer_transform_order_rotation_plus_mirror() -> None:
     arr = render_to_numpy(img, vp)
     alpha = arr[:, :, 3]
     lit = np.argwhere(alpha > 0)
-    assert len(lit) > 0, "No pixels rendered — aperture/viewport mismatch"
+    assert len(lit) > 0, "No pixels rendered -- aperture/viewport mismatch"
     y_centroid = float(np.mean(lit[:, 0]))  # row 0 = top of screen
-    # Correct: flash ends at Gerber (0, 0.5) → screen y = 50 - 0.5*40 = 30 (above centre)
-    # Wrong:   flash ends at Gerber (0, -0.5) → screen y = 50 + 0.5*40 = 70 (below centre)
+    # Correct: flash ends at Gerber (0, 0.5) -> screen y = 50 - 0.5*40 = 30 (above centre)
+    # Wrong:   flash ends at Gerber (0, -0.5) -> screen y = 50 + 0.5*40 = 70 (below centre)
     assert y_centroid < 50.0, (
         f"Transform order wrong: centroid y={y_centroid:.1f} expected < 50 (above centre)"
     )
@@ -340,12 +340,12 @@ def test_layer_transform_no_transforms_unchanged() -> None:
     lit = np.argwhere(alpha > 0)
     assert len(lit) > 0
     x_centroid = float(np.mean(lit[:, 1]))  # col index = x in screen
-    # Flash at (0.5, 0.0) → screen x = 50 + 0.5*40 = 70 (right of centre)
+    # Flash at (0.5, 0.0) -> screen x = 50 + 0.5*40 = 70 (right of centre)
     assert x_centroid > 50.0, f"Flash should be right of centre, got x={x_centroid:.1f}"
 
 
 # ---------------------------------------------------------------------------
-# 3.2 — Block aperture recursion depth guard
+# 3.2 -- Block aperture recursion depth guard
 # ---------------------------------------------------------------------------
 
 
@@ -443,7 +443,7 @@ def test_sr_render_produces_multiple_instances() -> None:
         bounding_box=bb,
         diagnostics=[],
     )
-    # Viewport covers both instances: 1 inch wide at 100 px/inch → 100 px
+    # Viewport covers both instances: 1 inch wide at 100 px/inch -> 100 px
     vp = Viewport(width=100, height=50, pan_x=50.0, pan_y=25.0, zoom=100.0)
     arr = render_to_numpy(img, vp)
     alpha = arr[:, :, 3]
@@ -451,7 +451,7 @@ def test_sr_render_produces_multiple_instances() -> None:
     lit_cols = np.where(np.any(alpha > 0, axis=0))[0]
     assert len(lit_cols) > 0, "No pixels rendered"
     col_min, col_max = int(lit_cols.min()), int(lit_cols.max())
-    # Two instances separated by 50 px (0.5 inch x 100 px/inch) — range must span > 20 px
+    # Two instances separated by 50 px (0.5 inch x 100 px/inch) -- range must span > 20 px
     assert col_max - col_min > 20, (
         f"SR X2 instances too close together: col range [{col_min}, {col_max}]"
     )

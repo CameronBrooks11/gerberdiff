@@ -1,4 +1,4 @@
-# Geometry-Aware Diff — Why It Was Not Implemented
+# Geometry-Aware Diff -- Why It Was Not Implemented
 
 **Status:** Intentionally deferred. This note explains the decision and records enough
 design detail that the work can be picked up cleanly by a future contributor.
@@ -38,18 +38,18 @@ the geometry layer without modification.
 
 ## How It Would Be Done
 
-### Stage A — Aperture Expansion
+### Stage A -- Aperture Expansion
 
-Every `DrawOp` represents an intent; the geometry diff needs the actual shape — a
+Every `DrawOp` represents an intent; the geometry diff needs the actual shape -- a
 polygon. Required expansions:
 
 | DrawOp                    | Expansion                                              |
 | ------------------------- | ------------------------------------------------------ |
-| Circle flash              | Circle → regular polygon approximation                 |
+| Circle flash              | Circle -> regular polygon approximation                 |
 | Rectangle flash           | Axis-aligned rectangle                                 |
 | Obround flash             | Rectangle + two semicircles                            |
 | Polygon flash             | Regular N-gon                                          |
-| Macro flash               | Evaluated primitive set → union of polygons            |
+| Macro flash               | Evaluated primitive set -> union of polygons            |
 | Block flash               | Recursive expansion of contained ops                   |
 | D01 stroke (any aperture) | Minkowski sum of aperture shape with path              |
 | Arc stroke                | Swept shape along arc; use `ArcSegment` geometry       |
@@ -59,11 +59,11 @@ polygon. Required expansions:
 polygon construction, `buffer()` for Minkowski approximation, boolean operations, and
 area/centroid queries.
 
-Arc stroke expansion is the hardest case. Suggested tolerance: chord error ≤ 1 µm
-(≈ 64 segments per full circle at 0.5 mm diameter). Complex macros may need a
+Arc stroke expansion is the hardest case. Suggested tolerance: chord error <= 1 um
+(~ 64 segments per full circle at 0.5 mm diameter). Complex macros may need a
 bounding-box fallback to avoid performance problems on dense boards.
 
-### Stage B — Per-Layer Boolean Difference
+### Stage B -- Per-Layer Boolean Difference
 
 ```python
 added_area   = unary_union(polygons_b).difference(unary_union(polygons_a))
@@ -72,28 +72,28 @@ removed_area = unary_union(polygons_a).difference(unary_union(polygons_b))
 
 Operate once per matched layer pair from `match_layers()`.
 
-### Stage C — Change Attribution
+### Stage C -- Change Attribution
 
 Match each changed polygon back to its source `DrawOp` objects by spatial intersection.
 Classify:
 
-- Shape in A only → **removed**
-- Shape in B only → **added**
-- Same location, same aperture type, different dimensions → **resized**
-- Same bounding-box centroid, different path → **rerouted**
+- Shape in A only -> **removed**
+- Shape in B only -> **added**
+- Same location, same aperture type, different dimensions -> **resized**
+- Same bounding-box centroid, different path -> **rerouted**
 
-Matching is heuristic. Suggested: centroid within `0.5 × min(aperture_diameter)` of the
+Matching is heuristic. Suggested: centroid within `0.5 x min(aperture_diameter)` of the
 smaller shape. This needs user-tunable tolerance.
 
 ### Recommended Architecture
 
-**Hybrid** — keep the raster engine for visual output; add the geometry engine as a
+**Hybrid** -- keep the raster engine for visual output; add the geometry engine as a
 parallel pipeline producing a `GeometryDiffResult` alongside the existing
 `SingleLayerDiff`. The two outputs serve different audiences (human review vs.
 automated inspection).
 
 Do not remove the raster overlay. Do not derive the raster from the geometry polygons
-(Option C in the original roadmap) — it adds complexity for no user-visible benefit in
+(Option C in the original roadmap) -- it adds complexity for no user-visible benefit in
 the common case.
 
 ### Sketch of New Types
@@ -131,9 +131,9 @@ The JSON report schema would need a version bump to include this structure.
 
 ## Prerequisites Before Starting
 
-1. **Item 5.6 complete** — `RegionFill` must be its own IR type (not sentinel `DrawOp`
+1. **Item 5.6 complete** -- `RegionFill` must be its own IR type (not sentinel `DrawOp`
    values) so Stage A can handle region fills without special-casing.
-2. **Prototype against real boards** — run aperture expansion and boolean diff on at
+2. **Prototype against real boards** -- run aperture expansion and boolean diff on at
    least two of the fixture boards before committing the full pipeline.
-3. **`shapely` dependency decision** — confirm LGPL-2.1 is acceptable; add to
+3. **`shapely` dependency decision** -- confirm LGPL-2.1 is acceptable; add to
    `[project.dependencies]` in `pyproject.toml`.

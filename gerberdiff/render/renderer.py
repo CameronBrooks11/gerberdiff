@@ -148,9 +148,9 @@ def _render_layer(
 
     # Optional layer-level transforms.
     # Cairo post-multiplies each call into the CTM, so the last call in code
-    # is the FIRST transform applied to coordinates.  RS-274X §4.9 specifies
-    # that coordinates are transformed as: scale → rotation → mirror.
-    # Code order must therefore be the reverse: mirror → rotation → scale.
+    # is the FIRST transform applied to coordinates.  RS-274X sec.4.9 specifies
+    # that coordinates are transformed as: scale -> rotation -> mirror.
+    # Code order must therefore be the reverse: mirror -> rotation -> scale.
     if layer.mirror != MirrorState.None_:
         sx = -1.0 if layer.mirror in (MirrorState.FlipA, MirrorState.FlipAB) else 1.0
         sy = -1.0 if layer.mirror in (MirrorState.FlipB, MirrorState.FlipAB) else 1.0

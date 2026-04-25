@@ -376,7 +376,7 @@ def test_block_aperture_compile_render_called_once(monkeypatch) -> None:
     render_to_numpy(img, vp)
 
     # compile_render is called once for the top-level ParsedImage, plus once
-    # for the BlockAperture (cached after that).  3 flashes → still only 1
+    # for the BlockAperture (cached after that).  3 flashes -> still only 1
     # block compile call.  Total = 2.
     assert call_count == 2, (
         f"expected 2 compile_render calls total (1 top-level + 1 block), got {call_count}"

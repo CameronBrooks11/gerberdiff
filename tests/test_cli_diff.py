@@ -233,7 +233,7 @@ def test_diff_quiet_no_stdout(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3.4 — assert → explicit error handling
+# 3.4 -- assert -> explicit error handling
 # ---------------------------------------------------------------------------
 
 

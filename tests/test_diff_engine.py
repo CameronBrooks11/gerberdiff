@@ -274,12 +274,12 @@ def test_compute_diff_no_callback_no_error() -> None:
 def test_merge_cascade_three_regions() -> None:
     """A-C overlap, C-B overlap, but A-B do NOT overlap directly.
 
-    After merging A+C → A', A' now overlaps B → all three merge into one.
+    After merging A+C -> A', A' now overlaps B -> all three merge into one.
     """
     # A=[0,0,2,1], C=[1.5,0,3,1], B=[2.5,0,4,1]; tolerance=0.1
-    # A ends at x=2, C starts at x=1.5 → overlap (2 > 1.5)
-    # C ends at x=3, B starts at x=2.5 → overlap (3 > 2.5)
-    # A ends at x=2, B starts at x=2.5 → gap=0.5 > tolerance → no direct A-B overlap
+    # A ends at x=2, C starts at x=1.5 -> overlap (2 > 1.5)
+    # C ends at x=3, B starts at x=2.5 -> overlap (3 > 2.5)
+    # A ends at x=2, B starts at x=2.5 -> gap=0.5 > tolerance -> no direct A-B overlap
     r_a = _region(1, 0.0, 0.0, 2.0, 1.0)
     r_c = _region(2, 1.5, 0.0, 3.0, 1.0)
     r_b = _region(3, 2.5, 0.0, 4.0, 1.0)
@@ -326,13 +326,13 @@ def _dot_image(x: float = 0.0, y: float = 0.0) -> ParsedImage:
 
 
 def test_compute_diff_alignment_offset_shifts_b() -> None:
-    """A large alignment_offset moves image_b out of alignment → changed pixels > 0."""
+    """A large alignment_offset moves image_b out of alignment -> changed pixels > 0."""
     img = _dot_image(0.0, 0.0)
-    # Without offset: identical images → zero changed pixels.
+    # Without offset: identical images -> zero changed pixels.
     result_no_offset = compute_diff(img, img, width=64, height=64)
     assert result_no_offset.changed_pixel_count == 0
 
-    # With a 1-inch offset image_b is shifted far off the viewport → many changed pixels.
+    # With a 1-inch offset image_b is shifted far off the viewport -> many changed pixels.
     result_offset = compute_diff(img, img, width=64, height=64, alignment_offset=(1.0, 0.0))
     assert result_offset.changed_pixel_count > 0, (
         "alignment_offset=(1.0, 0.0) should shift image_b so there are changed pixels"

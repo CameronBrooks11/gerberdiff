@@ -84,10 +84,10 @@ def _apply_format(raw: str, spec: _FormatSpec) -> tuple[float, bool]:
     truncated = len(digits) > total
 
     if spec.zero_suppression == "TZ":
-        # Trailing zeros suppressed in file → right-pad to restore them
+        # Trailing zeros suppressed in file -> right-pad to restore them
         digits = digits.ljust(total, "0")
     else:
-        # Leading zeros suppressed in file (LZ) → left-pad to restore them
+        # Leading zeros suppressed in file (LZ) -> left-pad to restore them
         digits = digits.zfill(total)
 
     if truncated:

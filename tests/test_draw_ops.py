@@ -115,7 +115,7 @@ def test_stroke_none_aperture_no_crash() -> None:
 
 
 def test_stroke_obround_produces_visible_pixels() -> None:
-    """ObroundAperture stroke uses min(w,h) line width — not the 0.001 hairline."""
+    """ObroundAperture stroke uses min(w,h) line width -- not the 0.001 hairline."""
     import numpy as np
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 100, 100)
@@ -144,7 +144,7 @@ def test_stroke_obround_produces_visible_pixels() -> None:
 
 
 def test_stroke_polygon_produces_visible_pixels() -> None:
-    """PolygonAperture stroke uses outer_diameter — not the 0.001 hairline."""
+    """PolygonAperture stroke uses outer_diameter -- not the 0.001 hairline."""
     import numpy as np
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 100, 100)
@@ -229,9 +229,9 @@ def _stroke_surface(aperture, width: int = 100, height: int = 100) -> int:
 def test_rectangle_stroke_wide_aperture_produces_wider_stroke_than_narrow() -> None:
     """max(w,h) ensures the wide dimension is used for the stroke width.
 
-    RectangleAperture(0.5, 0.1): max=0.5 → 25 px wide at 50 px/inch.
-    RectangleAperture(0.1, 0.5): max=0.5 → same 25 px wide.
-    Both should produce far more pixels than CircleAperture(diameter=0.1) → 5 px.
+    RectangleAperture(0.5, 0.1): max=0.5 -> 25 px wide at 50 px/inch.
+    RectangleAperture(0.1, 0.5): max=0.5 -> same 25 px wide.
+    Both should produce far more pixels than CircleAperture(diameter=0.1) -> 5 px.
     """
     wide_horizontal = _stroke_surface(RectangleAperture(width=0.5, height=0.1))
     wide_vertical = _stroke_surface(RectangleAperture(width=0.1, height=0.5))
@@ -246,7 +246,7 @@ def test_rectangle_stroke_wide_aperture_produces_wider_stroke_than_narrow() -> N
 
 
 def test_obround_stroke_wide_aperture_uses_max_dimension() -> None:
-    """ObroundAperture(0.4, 0.1): max=0.4 → wider stroke than CircleAperture(0.1)."""
+    """ObroundAperture(0.4, 0.1): max=0.4 -> wider stroke than CircleAperture(0.1)."""
     wide = _stroke_surface(ObroundAperture(width=0.4, height=0.1))
     narrow = _stroke_surface(CircleAperture(diameter=0.1))
     assert wide > narrow * 2, f"wide={wide} should be >> narrow={narrow}"
