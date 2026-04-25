@@ -331,9 +331,14 @@ class LayerDiffResult:
 @dataclass
 class DiffResult:
     layers: list[LayerDiffResult]
-    has_changes: bool  # stored field; set by caller (CLI / compute_diff).
-    # Not a @property: added/removed layers must also drive has_changes=True,
-    # regardless of pixel count, so the CLI owns the computation.
+
+    @property
+    def has_changes(self) -> bool:
+        """True when any layer was added, removed, or has changed pixels."""
+        return any(
+            lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
+            for lr in self.layers
+        )
 
 
 # ---------------------------------------------------------------------------

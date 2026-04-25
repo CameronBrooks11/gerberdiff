@@ -56,11 +56,8 @@ def _layer(
     )
 
 
-def _diff(*layers: LayerDiffResult, has_changes: bool | None = None) -> DiffResult:
-    hc = any(lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched for lr in layers)
-    return DiffResult(
-        layers=list(layers), has_changes=has_changes if has_changes is not None else hc
-    )
+def _diff(*layers: LayerDiffResult) -> DiffResult:
+    return DiffResult(layers=list(layers))
 
 
 # ---------------------------------------------------------------------------

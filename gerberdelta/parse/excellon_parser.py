@@ -95,6 +95,81 @@ def _to_inches(value: float, unit: UnitType) -> float:
     return value / 25.4 if unit == UnitType.Millimeter else value
 
 
+def _parse_tool_def(
+    line: str,
+    format_spec: _FormatSpec,
+    apertures: dict[int, CircleAperture],
+) -> None:
+    """Parse a tool-definition line (``T<n>C<dia>``) and record it in *apertures*."""
+    m = _TOOL_DEF_RE.match(line)
+    if m:
+        tool_num = int(m.group(1))
+        dia_raw = float(m.group(2))
+        dia_in = _to_inches(dia_raw, format_spec.unit)
+        apertures[tool_num] = CircleAperture(diameter=dia_in)
+
+
+def _parse_coord_line(
+    line: str,
+    format_spec: _FormatSpec,
+    current_tool: int,
+    apertures: dict[int, CircleAperture],
+    nets: list[DrawOp | RegionFill],
+    bbox: BoundingBox,
+    diagnostics: list[Diagnostic],
+    lineno: int,
+) -> int:
+    """Parse a coordinate line and append a flash DrawOp.
+
+    Returns the (possibly updated) current tool number.
+    """
+    # Some generators include T<n> on the same line as XY
+    tool_m = re.search(r"T(\d+)", line, re.IGNORECASE)
+    if tool_m and not line.strip().upper().startswith("T"):
+        current_tool = int(tool_m.group(1))
+
+    x_val: float | None = None
+    y_val: float | None = None
+    for letter_match in re.finditer(r"([XY])([+-]?\d+(?:\.\d+)?)", line, re.IGNORECASE):
+        letter = letter_match.group(1).upper()
+        val = _apply_format(letter_match.group(2), format_spec)
+        if letter == "X":
+            x_val = val
+        elif letter == "Y":
+            y_val = val
+
+    if x_val is None and y_val is None:
+        return current_tool
+    if current_tool == 0:
+        diagnostics.append(
+            Diagnostic(DiagnosticSeverity.Warning, f"Drill hit with no tool selected (line {lineno})", lineno)
+        )
+        return current_tool
+
+    x_in = _to_inches(x_val if x_val is not None else 0.0, format_spec.unit)
+    y_in = _to_inches(y_val if y_val is not None else 0.0, format_spec.unit)
+
+    nets.append(
+        DrawOp(
+            start_x=x_in,
+            start_y=y_in,
+            stop_x=x_in,
+            stop_y=y_in,
+            aperture_index=current_tool,
+            aperture_state=ApertureState.Flash,
+            interpolation=InterpolationMode.Linear,
+            layer_index=0,
+            net_state_index=0,
+        )
+    )
+
+    ap = apertures.get(current_tool)
+    r = ap.diameter / 2.0 if ap is not None else 0.0
+    bbox.expand(x_in, y_in, r)
+
+    return current_tool
+
+
 def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage:
     """Parse an Excellon drill file into a ParsedImage.
 
@@ -130,65 +205,6 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
     in_header: bool = False
     lineno: int = 0
 
-    def warn(msg: str) -> None:
-        diagnostics.append(Diagnostic(DiagnosticSeverity.Warning, msg, lineno))
-
-    def parse_tool_def(line: str) -> None:
-        m = _TOOL_DEF_RE.match(line)
-        if m:
-            tool_num = int(m.group(1))
-            dia_raw = float(m.group(2))
-            dia_in = _to_inches(dia_raw, format_spec.unit)
-            apertures[tool_num] = CircleAperture(diameter=dia_in)
-
-    def parse_coord_line(line: str) -> None:
-        nonlocal current_tool
-        # Some generators include T<n> on the same line as XY
-        tool_m = re.search(r"T(\d+)", line, re.IGNORECASE)
-        if tool_m and not line.strip().upper().startswith("T"):
-            current_tool = int(tool_m.group(1))
-
-        # KiCad and most generators emit X then Y; some omit one or both.
-        # The regex captures the raw token (integer or decimal) and _apply_format
-        # handles both explicit-decimal and integer-format coordinates.
-        x_val: float | None = None
-        y_val: float | None = None
-        for letter_match in re.finditer(r"([XY])([+-]?\d+(?:\.\d+)?)", line, re.IGNORECASE):
-            letter = letter_match.group(1).upper()
-            val = _apply_format(letter_match.group(2), format_spec)
-            if letter == "X":
-                x_val = val
-            elif letter == "Y":
-                y_val = val
-
-        if x_val is None and y_val is None:
-            return
-        if current_tool == 0:
-            warn(f"Drill hit with no tool selected (line {lineno})")
-            return
-
-        x_in = _to_inches(x_val if x_val is not None else 0.0, format_spec.unit)
-        y_in = _to_inches(y_val if y_val is not None else 0.0, format_spec.unit)
-
-        nets.append(
-            DrawOp(
-                start_x=x_in,
-                start_y=y_in,
-                stop_x=x_in,
-                stop_y=y_in,
-                aperture_index=current_tool,
-                aperture_state=ApertureState.Flash,
-                interpolation=InterpolationMode.Linear,
-                layer_index=0,
-                net_state_index=0,
-            )
-        )
-
-        # Bounding box: expand by tool radius
-        ap = apertures.get(current_tool)
-        r = ap.diameter / 2.0 if ap is not None else 0.0
-        bbox.expand(x_in, y_in, r)
-
     for lineno, raw_line in enumerate(lines, start=1):  # noqa: B007
         line = raw_line.strip()
 
@@ -216,7 +232,7 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
                 pass  # Excellon format version -- informational
             # Tool definition in header
             elif _TOOL_DEF_RE.match(line):
-                parse_tool_def(line)
+                _parse_tool_def(line, format_spec, apertures)
             # Ignore all other header lines
             continue
 
@@ -233,9 +249,13 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
             if code in ("0", "00", "5", "05", "90"):
                 pass  # drill mode / absolute -- ignore
             elif code in ("1", "01"):
-                warn("G01 linear rout mode encountered (not drill)")
+                diagnostics.append(
+                    Diagnostic(DiagnosticSeverity.Warning, "G01 linear rout mode encountered (not drill)", lineno)
+                )
             elif code in ("2", "02", "3", "03"):
-                warn("G02/G03 arc rout mode encountered (not drill)")
+                diagnostics.append(
+                    Diagnostic(DiagnosticSeverity.Warning, "G02/G03 arc rout mode encountered (not drill)", lineno)
+                )
             # Other G codes ignored silently
             continue
 
@@ -251,7 +271,7 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
 
         # Tool definition in body (some generators emit T<n>C<dia> here)
         if _TOOL_DEF_RE.match(line):
-            parse_tool_def(line)
+            _parse_tool_def(line, format_spec, apertures)
             continue
 
         # Tool select: bare T<n>
@@ -262,7 +282,9 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
 
         # Coordinate line
         if re.search(r"[XY]", line, re.IGNORECASE):
-            parse_coord_line(line)
+            current_tool = _parse_coord_line(
+                line, format_spec, current_tool, apertures, nets, bbox, diagnostics, lineno
+            )
             continue
 
         # Anything else: ignore silently (R-codes, comments without ';', etc.)

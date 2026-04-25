@@ -246,11 +246,7 @@ def compute_full_diff(
 
         layer_results.append(lr)
 
-    has_changes = any(
-        lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
-        for lr in layer_results
-    )
-    return DiffResult(layers=layer_results, has_changes=has_changes)
+    return DiffResult(layers=layer_results)
 
 
 # ---------------------------------------------------------------------------

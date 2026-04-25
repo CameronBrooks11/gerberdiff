@@ -118,9 +118,10 @@ def test_region_bounding_box_field_name() -> None:
     assert not hasattr(r, "bbox")
 
 
-def test_diff_result_has_changes_stored_field() -> None:
-    """has_changes must be a plain stored field, not a computed property."""
-    layer = LayerDiffResult(
+def test_diff_result_has_changes_property() -> None:
+    """has_changes is a computed property: True when any layer has changes or
+    non-Matched status; False when all layers are matched with zero changed pixels."""
+    matched_clean = LayerDiffResult(
         name="F.Cu",
         status=LayerStatus.Matched,
         layer_type=LayerType.FCu,
@@ -128,10 +129,30 @@ def test_diff_result_has_changes_stored_field() -> None:
         total_pixel_count=1000,
         regions=[],
     )
-    dr_no = DiffResult(layers=[layer], has_changes=False)
-    dr_yes = DiffResult(layers=[layer], has_changes=True)
-    assert not dr_no.has_changes
-    assert dr_yes.has_changes
+    matched_dirty = LayerDiffResult(
+        name="B.Cu",
+        status=LayerStatus.Matched,
+        layer_type=LayerType.BCu,
+        changed_pixel_count=50,
+        total_pixel_count=1000,
+        regions=[],
+    )
+    added_layer = LayerDiffResult(
+        name="In1.Cu",
+        status=LayerStatus.Added,
+        layer_type=LayerType.InCu,
+        changed_pixel_count=0,
+        total_pixel_count=1000,
+        regions=[],
+    )
+    assert not DiffResult(layers=[matched_clean]).has_changes
+    assert DiffResult(layers=[matched_dirty]).has_changes
+    assert DiffResult(layers=[added_layer]).has_changes
+    assert DiffResult(layers=[matched_clean, matched_dirty]).has_changes
+    # Property is read-only
+    dr = DiffResult(layers=[matched_clean])
+    with pytest.raises(AttributeError):
+        dr.has_changes = True  # type: ignore[misc]
 
 
 def test_aperture_type_discriminator() -> None:
