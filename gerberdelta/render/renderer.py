@@ -61,11 +61,16 @@ def render_to_surface(
     parsed_image: ParsedImage,
     viewport: Viewport,
     draw_color: tuple[float, float, float, float] = _DEFAULT_COLOR,
+    coordinate_offset: tuple[float, float] | None = None,
 ) -> cairo.ImageSurface:
     """Render *parsed_image* into a new ``cairo.ImageSurface``.
 
     The surface uses ``FORMAT_ARGB32`` (premultiplied alpha).  Transparent
     pixels represent the PCB substrate / background.
+
+    *coordinate_offset* shifts the board in world-space (inches) before
+    rendering.  Used by ``compute_diff`` to align two boards with different
+    origins.
     """
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, viewport.width, viewport.height)
     ctx = cairo.Context(surface)
@@ -80,7 +85,8 @@ def render_to_surface(
     ctx.save()
     ctx.translate(viewport.pan_x, viewport.pan_y)
     ctx.scale(viewport.zoom, -viewport.zoom)
-
+    if coordinate_offset is not None:
+        ctx.translate(coordinate_offset[0], coordinate_offset[1])
     # Global draw style.
     ctx.set_source_rgba(*draw_color)
     ctx.set_line_join(cairo.LINE_JOIN_ROUND)
@@ -98,12 +104,13 @@ def render_to_numpy(
     parsed_image: ParsedImage,
     viewport: Viewport,
     draw_color: tuple[float, float, float, float] = _DEFAULT_COLOR,
+    coordinate_offset: tuple[float, float] | None = None,
 ) -> np.ndarray:
     """Render to a ``numpy`` array of shape ``(H, W, 4)`` with dtype ``uint8``.
 
     Channel order is BGRA (Cairo's native ARGB32 little-endian layout).
     """
-    surface = render_to_surface(parsed_image, viewport, draw_color)
+    surface = render_to_surface(parsed_image, viewport, draw_color, coordinate_offset)
     surface.flush()
     buf = surface.get_data()
     arr = np.frombuffer(buf, dtype=np.uint8)
