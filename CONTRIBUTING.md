@@ -106,4 +106,4 @@ EOF
 ## License
 
 By contributing you agree that your contributions will be licensed under the
-[AGPL-3.0-only](LICENSE) licence.
+[Apache-2.0](LICENSE) licence.

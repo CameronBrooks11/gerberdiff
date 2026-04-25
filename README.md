@@ -3,7 +3,7 @@
 [![CI](https://github.com/CameronBrooks11/gerberdelta/actions/workflows/ci.yml/badge.svg)](https://github.com/CameronBrooks11/gerberdelta/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/gerberdelta)](https://pypi.org/project/gerberdelta/)
 [![Python](https://img.shields.io/pypi/pyversions/gerberdelta)](https://pypi.org/project/gerberdelta/)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 Geometry-aware Gerber/Excellon diff tool -- compare two revisions of a PCB design and highlight what changed.
 
