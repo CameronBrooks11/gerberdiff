@@ -230,3 +230,35 @@ def test_diff_quiet_no_stdout(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert result.output.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# 3.4 — assert → explicit error handling
+# ---------------------------------------------------------------------------
+
+
+def test_diff_added_layer_reports_correctly(tmp_path: Path) -> None:
+    """A file present only in after_dir is reported as 'added' with exit 0."""
+    before = tmp_path / "before"
+    after = tmp_path / "after"
+    before.mkdir()
+    after.mkdir()
+    # Write a minimal gerber only in 'after' so layer is 'added'
+    (after / "test.gbr").write_text(
+        "%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,0.2*%\nD10*\nX0Y0D03*\nM02*\n"
+    )
+    result = _run("diff", str(before), str(after), "--width", "64", "--height", "64")
+    assert result.exit_code == 0, result.output
+
+
+def test_diff_removed_layer_reports_correctly(tmp_path: Path) -> None:
+    """A file present only in before_dir is reported as 'removed' with exit 0."""
+    before = tmp_path / "before"
+    after = tmp_path / "after"
+    before.mkdir()
+    after.mkdir()
+    (before / "test.gbr").write_text(
+        "%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,0.2*%\nD10*\nX0Y0D03*\nM02*\n"
+    )
+    result = _run("diff", str(before), str(after), "--width", "64", "--height", "64")
+    assert result.exit_code == 0, result.output

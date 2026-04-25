@@ -130,6 +130,7 @@ def _render_layer(
     ctx: cairo.Context,
     layer: CompiledLayer,
     apertures: dict[int, Aperture],
+    depth: int = 0,
 ) -> None:
     """Render one compiled layer, applying polarity, transforms, and SR."""
     ctx.save()
@@ -138,15 +139,19 @@ def _render_layer(
     if layer.polarity == Polarity.Clear:
         ctx.set_operator(cairo.OPERATOR_DEST_OUT)
 
-    # Optional layer-level transforms (scale -> rotation -> mirror).
-    if layer.scale != 1.0:
-        ctx.scale(layer.scale, layer.scale)
-    if layer.rotation != 0.0:
-        ctx.rotate(math.radians(layer.rotation))
+    # Optional layer-level transforms.
+    # Cairo post-multiplies each call into the CTM, so the last call in code
+    # is the FIRST transform applied to coordinates.  RS-274X §4.9 specifies
+    # that coordinates are transformed as: scale → rotation → mirror.
+    # Code order must therefore be the reverse: mirror → rotation → scale.
     if layer.mirror != MirrorState.None_:
         sx = -1.0 if layer.mirror in (MirrorState.FlipA, MirrorState.FlipAB) else 1.0
         sy = -1.0 if layer.mirror in (MirrorState.FlipB, MirrorState.FlipAB) else 1.0
         ctx.scale(sx, sy)
+    if layer.rotation != 0.0:
+        ctx.rotate(math.radians(layer.rotation))
+    if layer.scale != 1.0:
+        ctx.scale(layer.scale, layer.scale)
 
     # Step-and-repeat: only loop when SR counts exceed 1.
     sr = layer.step_and_repeat
@@ -155,10 +160,10 @@ def _render_layer(
             for iy in range(sr.y):
                 ctx.save()
                 ctx.translate(ix * sr.dist_x, iy * sr.dist_y)
-                _render_groups(ctx, layer.groups, apertures)
+                _render_groups(ctx, layer.groups, apertures, depth)
                 ctx.restore()
     else:
-        _render_groups(ctx, layer.groups, apertures)
+        _render_groups(ctx, layer.groups, apertures, depth)
 
     ctx.restore()
 
@@ -167,6 +172,7 @@ def _render_groups(
     ctx: cairo.Context,
     groups: list[CompiledGroup],
     apertures: dict[int, Aperture],
+    depth: int = 0,
 ) -> None:
     """Execute each compiled group against *ctx*."""
     for group in groups:
@@ -216,6 +222,7 @@ def _render_groups(
                             group.net.stop_x,
                             group.net.stop_y,
                             ap,
+                            depth + 1,
                         )
 
 
@@ -224,12 +231,19 @@ def _draw_block_flash(
     x: float,
     y: float,
     block_ap: BlockAperture,
+    depth: int = 0,
 ) -> None:
     """Render a block aperture flash by recursively compiling and drawing it.
 
     The block's nets are in its own coordinate system.  Translating by
     ``(x, y)`` stamps the block at the flash position.
+
+    *depth* tracks the block-nesting level.  Rendering is silently skipped
+    when ``depth >= 10``, matching the parser's nesting limit and preventing
+    unbounded recursion on malformed input.
     """
+    if depth >= 10:
+        return
     if not block_ap.draw_ops:
         return
 
@@ -249,5 +263,5 @@ def _draw_block_flash(
     ctx.translate(x, y)
     cr = compile_render(synthetic)
     for layer in cr.layers:
-        _render_layer(ctx, layer, block_ap.apertures)
+        _render_layer(ctx, layer, block_ap.apertures, depth)
     ctx.restore()

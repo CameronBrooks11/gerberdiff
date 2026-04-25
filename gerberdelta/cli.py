@@ -289,7 +289,12 @@ def diff_cmd(
         # Added / removed layers: report 100% changed without rendering both.
         if pair.status in ("added", "removed"):
             src_path = pair.after_path if pair.status == "added" else pair.before_path
-            assert src_path is not None
+            if src_path is None:
+                click.echo(
+                    f"error: {pair.name}: {pair.status} layer has no associated path",
+                    err=True,
+                )
+                sys.exit(2)
             try:
                 content = src_path.read_text(errors="replace")
             except OSError as exc:
@@ -314,8 +319,12 @@ def diff_cmd(
             continue
 
         # Matched layers: full diff
-        assert pair.before_path is not None
-        assert pair.after_path is not None
+        if pair.before_path is None or pair.after_path is None:
+            click.echo(
+                f"error: {pair.name}: matched layer is missing before or after path",
+                err=True,
+            )
+            sys.exit(2)
 
         def _parse(path: Path) -> object:
             try:

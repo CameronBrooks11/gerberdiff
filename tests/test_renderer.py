@@ -18,16 +18,18 @@ from gerberdelta.render.compiled_render import (
     compile_render,
 )
 from gerberdelta.render.renderer import render_to_numpy, render_to_surface
-from gerberdelta.render.viewport import compute_viewport
+from gerberdelta.render.viewport import Viewport, compute_viewport
 from gerberdelta.types import (
     Aperture,
     ApertureState,
+    BlockAperture,
     BoundingBox,
     CircleAperture,
     DrawOp,
     InterpolationMode,
     LayerState,
     MacroAperture,
+    MirrorState,
     ParsedImage,
     Polarity,
     StepAndRepeat,
@@ -267,3 +269,138 @@ def test_render_consistent_with_viewport() -> None:
 
     lit_border = int(np.sum(alpha[border] > 0))
     assert lit_border < 100
+
+
+# ---------------------------------------------------------------------------
+# 3.1 — Cairo layer transform order (RS-274X §4.9)
+# ---------------------------------------------------------------------------
+
+
+def _flash_at(x: float, y: float, layer: LayerState | None = None) -> ParsedImage:
+    """Minimal ParsedImage with one circle flash at (x, y)."""
+    ap_code = 10
+    net = DrawOp(
+        start_x=x,
+        start_y=y,
+        stop_x=x,
+        stop_y=y,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    bb = BoundingBox()
+    bb.expand(x, y, 0.02)
+    return ParsedImage(
+        draw_ops=[net],
+        apertures={ap_code: CircleAperture(diameter=0.04)},
+        layers=[layer or LayerState()],
+        coord_states=[],
+        bounding_box=bb,
+        diagnostics=[],
+    )
+
+
+def test_layer_transform_order_rotation_plus_mirror() -> None:
+    """RS-274X §4.9: coordinates transform as scale→rotation→mirror.
+
+    A flash at (0.5, 0.0) with rotation=90° and mirror=FlipA:
+      Correct order  (applied to coords): scale(noop)→rotate90→flipA
+        (0.5,0) → rotate90 → (0,0.5) → flipA (x→-x) → (0,0.5) → screen y < 50
+      Wrong order (applied to coords): flipA→rotate90→scale
+        (0.5,0) → flipA → (-0.5,0) → rotate90 → (0,-0.5) → screen y > 50
+    """
+    # Fixed viewport: origin at pixel (50,50), 40 px/inch.
+    vp = Viewport(width=100, height=100, pan_x=50.0, pan_y=50.0, zoom=40.0)
+    img = _flash_at(0.5, 0.0, LayerState(rotation=90.0, mirror=MirrorState.FlipA))
+    arr = render_to_numpy(img, vp)
+    alpha = arr[:, :, 3]
+    lit = np.argwhere(alpha > 0)
+    assert len(lit) > 0, "No pixels rendered — aperture/viewport mismatch"
+    y_centroid = float(np.mean(lit[:, 0]))  # row 0 = top of screen
+    # Correct: flash ends at Gerber (0, 0.5) → screen y = 50 - 0.5*40 = 30 (above centre)
+    # Wrong:   flash ends at Gerber (0, -0.5) → screen y = 50 + 0.5*40 = 70 (below centre)
+    assert y_centroid < 50.0, (
+        f"Transform order wrong: centroid y={y_centroid:.1f} expected < 50 (above centre)"
+    )
+
+
+def test_layer_transform_no_transforms_unchanged() -> None:
+    """A layer with no transforms renders at the unmodified position."""
+    vp = Viewport(width=100, height=100, pan_x=50.0, pan_y=50.0, zoom=40.0)
+    img = _flash_at(0.5, 0.0)  # no transforms
+    arr = render_to_numpy(img, vp)
+    alpha = arr[:, :, 3]
+    lit = np.argwhere(alpha > 0)
+    assert len(lit) > 0
+    x_centroid = float(np.mean(lit[:, 1]))  # col index = x in screen
+    # Flash at (0.5, 0.0) → screen x = 50 + 0.5*40 = 70 (right of centre)
+    assert x_centroid > 50.0, f"Flash should be right of centre, got x={x_centroid:.1f}"
+
+
+# ---------------------------------------------------------------------------
+# 3.2 — Block aperture recursion depth guard
+# ---------------------------------------------------------------------------
+
+
+def _make_nested_block(nesting: int) -> BlockAperture:
+    """Build a chain of BlockApertures *nesting* levels deep."""
+    ap_code = 1
+    net = DrawOp(
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    bb = BoundingBox()
+    bb.expand(0.0, 0.0, 0.005)
+    if nesting == 0:
+        return BlockAperture(
+            draw_ops=[net],
+            apertures={ap_code: CircleAperture(diameter=0.01)},
+            layers=[LayerState()],
+            bounding_box=bb,
+        )
+    inner = _make_nested_block(nesting - 1)
+    return BlockAperture(
+        draw_ops=[net],
+        apertures={ap_code: inner},
+        layers=[LayerState()],
+        bounding_box=bb,
+    )
+
+
+def test_block_flash_depth_guard_no_recursion_error() -> None:
+    """A 15-level nested BlockAperture completes without RecursionError."""
+    outermost = _make_nested_block(15)
+    ap_code = 1
+    net = DrawOp(
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    bb = BoundingBox()
+    bb.expand(0.0, 0.0, 0.005)
+    img = ParsedImage(
+        draw_ops=[net],
+        apertures={ap_code: outermost},
+        layers=[LayerState()],
+        coord_states=[],
+        bounding_box=bb,
+        diagnostics=[],
+    )
+    vp = Viewport(width=50, height=50, pan_x=25.0, pan_y=25.0, zoom=200.0)
+    arr = render_to_numpy(img, vp)  # must not raise
+    assert arr.shape == (50, 50, 4)

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-04-25
+
+### Fixed
+
+- **Cairo layer transform order** (`renderer.py`) -- reversed the three
+  conditional blocks in `_render_layer` from scale→rotation→mirror to
+  mirror→rotation→scale in code order. Cairo post-multiplies each call into the
+  CTM, so the last call in code is the first transform applied to coordinates;
+  the previous order applied transforms to coordinates as mirror→rotation→scale
+  instead of the RS-274X §4.9-specified scale→rotation→mirror. A new test
+  (`test_layer_transform_order_rotation_plus_mirror`) uses a rotation+mirror
+  combination to verify the centroid of rendered pixels lands in the correct
+  screen quadrant.
+
+- **Block aperture recursion depth guard** (`renderer.py`) -- `_draw_block_flash`,
+  `_render_layer`, and `_render_groups` now accept a `depth: int = 0` parameter.
+  `_draw_block_flash` returns immediately when `depth >= 10`, matching the
+  parser's nesting limit and preventing unbounded recursion on malformed input.
+  A new test (`test_block_flash_depth_guard_no_recursion_error`) verifies that a
+  15-level nested `BlockAperture` chain completes without `RecursionError`.
+
+- **Stroke fallback line width** (`draw_ops.py`) -- `draw_net_as_stroke` now
+  has explicit `case ObroundAperture()` and `case PolygonAperture()` branches
+  before `case _:`. Both use `LINE_CAP_ROUND`; obround uses `min(width, height)`
+  and polygon uses `outer_diameter`. The previous fallback rendered these valid
+  D01 aperture types as a 25 µm hairline, producing near-invisible strokes.
+  Two new tests verify the corrected apertures produce > 200 lit pixels.
+
+- **CLI `assert` → explicit error handling** (`cli.py`) -- replaced three
+  `assert` statements in `diff_cmd` that guarded against missing paths on
+  added/removed/matched layers with `click.echo(..., err=True)` + `sys.exit(2)`
+  checks. `assert` is stripped by `python -O`; the new checks work under all
+  optimisation levels.
+
 ## [0.16.0] - 2026-04-25
 
 ### Fixed

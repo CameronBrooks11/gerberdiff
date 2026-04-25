@@ -113,6 +113,62 @@ def test_stroke_none_aperture_no_crash() -> None:
     draw_net_as_stroke(ctx, _stroke_net(), None)
 
 
+def test_stroke_obround_produces_visible_pixels() -> None:
+    """ObroundAperture stroke uses min(w,h) line width — not the 0.001 hairline."""
+    import numpy as np
+
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 100, 100)
+    ctx = cairo.Context(surface)
+    # 50 px/unit scale, origin at centre.
+    ctx.translate(50.0, 50.0)
+    ctx.scale(50.0, -50.0)
+    ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+    net = DrawOp(
+        start_x=-0.5,
+        start_y=0.0,
+        stop_x=0.5,
+        stop_y=0.0,
+        aperture_index=10,
+        aperture_state=ApertureState.On,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    draw_net_as_stroke(ctx, net, ObroundAperture(width=0.4, height=0.2))
+    surface.flush()
+    buf = np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(100, 100, 4)
+    lit = int(np.sum(buf[:, :, 3] > 0))
+    # 0.2 inch at 50 px/inch = 10 px diameter; stroke length ~50 px -> > 200 px expected
+    assert lit > 200, f"ObroundAperture stroke too thin: only {lit} lit pixels"
+
+
+def test_stroke_polygon_produces_visible_pixels() -> None:
+    """PolygonAperture stroke uses outer_diameter — not the 0.001 hairline."""
+    import numpy as np
+
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 100, 100)
+    ctx = cairo.Context(surface)
+    ctx.translate(50.0, 50.0)
+    ctx.scale(50.0, -50.0)
+    ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+    net = DrawOp(
+        start_x=-0.5,
+        start_y=0.0,
+        stop_x=0.5,
+        stop_y=0.0,
+        aperture_index=10,
+        aperture_state=ApertureState.On,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    draw_net_as_stroke(ctx, net, PolygonAperture(outer_diameter=0.2, num_vertices=6))
+    surface.flush()
+    buf = np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(100, 100, 4)
+    lit = int(np.sum(buf[:, :, 3] > 0))
+    assert lit > 200, f"PolygonAperture stroke too thin: only {lit} lit pixels"
+
+
 # ---- arc tests ----
 
 

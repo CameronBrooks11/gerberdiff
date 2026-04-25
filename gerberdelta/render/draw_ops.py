@@ -77,6 +77,12 @@ def draw_net_as_stroke(ctx: cairo.Context, net: DrawOp, aperture: Aperture | Non
         case RectangleAperture():
             ctx.set_line_width(min(aperture.width, aperture.height))
             ctx.set_line_cap(cairo.LINE_CAP_SQUARE)
+        case ObroundAperture():
+            ctx.set_line_width(min(aperture.width, aperture.height))
+            ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+        case PolygonAperture():
+            ctx.set_line_width(aperture.outer_diameter)
+            ctx.set_line_cap(cairo.LINE_CAP_ROUND)
         case _:
             ctx.set_line_width(0.001)
             ctx.set_line_cap(cairo.LINE_CAP_ROUND)
