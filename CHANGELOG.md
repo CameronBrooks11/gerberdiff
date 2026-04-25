@@ -102,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SingleLayerDiff` dataclass: `arr_a`, `arr_b`, `xor`, `regions`, `viewport`,
   `changed_pixel_count`, `total_pixel_count`.
 - `compute_diff(image_a, image_b, width, height, alignment_offset, min_pixel_count,
-  merge_tolerance) -> SingleLayerDiff`.
+merge_tolerance) -> SingleLayerDiff`.
 - `Region`, `LayerDiffResult`, `DiffResult` types added to `gerberdelta/types.py`.
 - `coordinate_offset: tuple[float, float] | None` parameter added to `render_to_surface()`
   and `render_to_numpy()` — applied as `ctx.translate()` after viewport scale, enabling
@@ -141,9 +141,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CompiledLayer`, `CompiledRender` containers.
 - **`gerberdelta/render/renderer.py`** — two-pass Cairo rasteriser:
   - `render_to_surface(parsed_image, viewport, draw_color, coordinate_offset)
-    -> cairo.ImageSurface`
+-> cairo.ImageSurface`
   - `render_to_numpy(parsed_image, viewport, draw_color, coordinate_offset)
-    -> np.ndarray` (shape `(H, W, 4)` uint8, BGRA; `.copy()` called to detach from Cairo
+-> np.ndarray` (shape `(H, W, 4)` uint8, BGRA; `.copy()` called to detach from Cairo
     buffer before returning)
   - Polarity compositing via `OPERATOR_OVER` (dark) / `OPERATOR_DEST_OUT` (clear).
   - Per-layer transforms: scale, rotation, mirror.

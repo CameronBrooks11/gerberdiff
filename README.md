@@ -43,28 +43,28 @@ gerberdelta diff before/ after/ --align-offset 0.5,0    # shift board B by 0.5 i
 
 #### diff options
 
-| Option | Default | Description |
-|---|---|---|
-| `--width` / `--height` | 2048 | Canvas size in pixels |
-| `--min-pixels` | 4 | Minimum pixel count for a reported region |
-| `--merge-tolerance` | 0.05 | Region merge padding in inches |
-| `--layer NAME` | (all) | Restrict to named layer (repeatable) |
-| `--out-json PATH` | — | Write JSON diff report |
-| `--out-png DIR` | — | Write per-layer overlay PNGs |
-| `--overwrite` | false | Allow overwriting existing output files |
-| `--png-show-common` | false | Shade unchanged geometry grey in PNGs |
-| `--align-offset X,Y` | 0,0 | Translate board B before diffing (inches) |
-| `--fail-on-diff` | false | Exit 1 if any changes detected |
-| `--quiet` / `--verbose` | — | Suppress or expand terminal output |
+| Option                  | Default | Description                               |
+| ----------------------- | ------- | ----------------------------------------- |
+| `--width` / `--height`  | 2048    | Canvas size in pixels                     |
+| `--min-pixels`          | 4       | Minimum pixel count for a reported region |
+| `--merge-tolerance`     | 0.05    | Region merge padding in inches            |
+| `--layer NAME`          | (all)   | Restrict to named layer (repeatable)      |
+| `--out-json PATH`       | —       | Write JSON diff report                    |
+| `--out-png DIR`         | —       | Write per-layer overlay PNGs              |
+| `--overwrite`           | false   | Allow overwriting existing output files   |
+| `--png-show-common`     | false   | Shade unchanged geometry grey in PNGs     |
+| `--align-offset X,Y`    | 0,0     | Translate board B before diffing (inches) |
+| `--fail-on-diff`        | false   | Exit 1 if any changes detected            |
+| `--quiet` / `--verbose` | —       | Suppress or expand terminal output        |
 
 #### Overlay PNG colour scheme
 
-| Colour | Meaning |
-|---|---|
-| Red | Geometry present in **before** only (removed) |
-| Green | Geometry present in **after** only (added) |
-| Yellow | Geometry changed (both non-zero, different value) |
-| Grey | Unchanged geometry (only with `--png-show-common`) |
+| Colour | Meaning                                            |
+| ------ | -------------------------------------------------- |
+| Red    | Geometry present in **before** only (removed)      |
+| Green  | Geometry present in **after** only (added)         |
+| Yellow | Geometry changed (both non-zero, different value)  |
+| Grey   | Unchanged geometry (only with `--png-show-common`) |
 
 #### JSON report schema
 
@@ -90,7 +90,7 @@ gerberdelta diff before/ after/ --align-offset 0.5,0    # shift board B by 0.5 i
           "id": 1,
           "centroid_x": 1.234,
           "centroid_y": 0.987,
-          "bbox": { "min_x": 1.21, "min_y": 0.97, "max_x": 1.26, "max_y": 1.00 },
+          "bbox": { "min_x": 1.21, "min_y": 0.97, "max_x": 1.26, "max_y": 1.0 },
           "pixel_count": 84
         }
       ]
