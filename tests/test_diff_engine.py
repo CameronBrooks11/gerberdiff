@@ -284,9 +284,7 @@ def test_merge_cascade_three_regions() -> None:
     r_c = _region(2, 1.5, 0.0, 3.0, 1.0)
     r_b = _region(3, 2.5, 0.0, 4.0, 1.0)
     result = merge_overlapping_regions([r_a, r_c, r_b], tolerance=0.1)
-    assert len(result) == 1, (
-        f"Expected all three to cascade-merge into 1 region, got {len(result)}"
-    )
+    assert len(result) == 1, f"Expected all three to cascade-merge into 1 region, got {len(result)}"
     merged = result[0]
     assert merged.bounding_box.min_x <= 0.0
     assert merged.bounding_box.max_x >= 4.0
@@ -301,12 +299,20 @@ def _dot_image(x: float = 0.0, y: float = 0.0) -> ParsedImage:
     """ParsedImage with a single circle flash at (x, y)."""
     ap_code = 10
     from gerberdiff.types import ApertureState, DrawOp, InterpolationMode
+
     net = DrawOp(
-        start_x=x, start_y=y, stop_x=x, stop_y=y,
-        aperture_index=ap_code, aperture_state=ApertureState.Flash,
-        interpolation=InterpolationMode.Linear, layer_index=0, net_state_index=0,
+        start_x=x,
+        start_y=y,
+        stop_x=x,
+        stop_y=y,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
     )
     from gerberdiff.types import CircleAperture
+
     bb = BoundingBox()
     bb.expand(x, y, 0.02)
     return ParsedImage(

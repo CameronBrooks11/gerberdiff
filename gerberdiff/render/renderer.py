@@ -27,6 +27,7 @@ from gerberdiff.render.compiled_render import (
     BlockFlash,
     CompiledGroup,
     CompiledLayer,
+    CompiledRender,
     FlashBatch,
     HoledFlash,
     MacroFlash,
@@ -57,7 +58,7 @@ _DEFAULT_COLOR: tuple[float, float, float, float] = (0.0, 1.0, 0.533, 1.0)
 # Cache of CompiledRender objects for BlockAperture instances.  Keyed by
 # id(block_ap).  A weakref finalizer removes each entry automatically when
 # its BlockAperture is garbage-collected, so stale ids cannot cause hits.
-_block_compile_cache: dict[int, object] = {}
+_block_compile_cache: dict[int, CompiledRender] = {}
 
 
 # ---------------------------------------------------------------------------

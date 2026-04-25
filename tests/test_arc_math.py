@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import math
 
-from gerberdiff.parse.arc_math import arc_bounding_box, compute_arc_multi_quadrant, compute_arc_single_quadrant
+from gerberdiff.parse.arc_math import (
+    arc_bounding_box,
+    compute_arc_multi_quadrant,
+    compute_arc_single_quadrant,
+)
 
 
 def test_multi_quadrant_quarter_circle_ccw() -> None:
@@ -84,7 +88,7 @@ def test_arc_bounding_box_half_circle_extends_beyond_chord() -> None:
     assert bb.max_y > 0.99, f"expected max_y≈1.0, got {bb.max_y}"
     assert bb.min_y < 0.01, f"expected min_y≈0, got {bb.min_y} (arc doesn't dip below chord)"
     # The arc does NOT sweep through 270° (bottom), so min_y must stay at 0.
-    assert bb.min_y >= -0.01, f"arc should not extend below y=0"
+    assert bb.min_y >= -0.01, "arc should not extend below y=0"
 
 
 def test_arc_bounding_box_full_circle_equals_diameter() -> None:

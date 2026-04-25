@@ -332,8 +332,7 @@ def diff_cmd(
     if verbose:
         for lr in diff_result.layers:
             click.echo(
-                f"  {lr.name}: {lr.changed_pixel_count} changed px, "
-                f"{len(lr.regions)} regions"
+                f"  {lr.name}: {lr.changed_pixel_count} changed px, {len(lr.regions)} regions"
             )
             for region in lr.regions:
                 click.echo(
@@ -356,10 +355,7 @@ def diff_cmd(
             for lr in diff_result.layers
             if lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
         )
-        click.echo(
-            f"diff: {changed_layers}/{len(diff_result.layers)} layers changed  "
-            f"{elapsed_ms}"
-        )
+        click.echo(f"diff: {changed_layers}/{len(diff_result.layers)} layers changed  {elapsed_ms}")
         if out_json:
             click.echo(f"report: {out_json}")
 

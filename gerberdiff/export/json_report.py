@@ -30,7 +30,9 @@ def build_report(diff_result: DiffResult) -> dict[str, Any]:
     The returned dict can be passed directly to ``json.dumps`` / ``json.dump``.
     """
     changed_layers = sum(
-        1 for lr in diff_result.layers if lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
+        1
+        for lr in diff_result.layers
+        if lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
     )
     total_regions = sum(len(lr.regions) for lr in diff_result.layers)
 

@@ -336,8 +336,7 @@ class DiffResult:
     def has_changes(self) -> bool:
         """True when any layer was added, removed, or has changed pixels."""
         return any(
-            lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched
-            for lr in self.layers
+            lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched for lr in self.layers
         )
 
 

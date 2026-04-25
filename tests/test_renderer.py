@@ -78,7 +78,9 @@ def _net(
     )
 
 
-def _image_with_nets(nets: list[DrawOp | RegionFill], apertures: dict[int, Aperture] | None = None) -> ParsedImage:
+def _image_with_nets(
+    nets: list[DrawOp | RegionFill], apertures: dict[int, Aperture] | None = None
+) -> ParsedImage:
     bb = BoundingBox()
     for n in nets:
         if isinstance(n, DrawOp):
@@ -449,7 +451,7 @@ def test_sr_render_produces_multiple_instances() -> None:
     lit_cols = np.where(np.any(alpha > 0, axis=0))[0]
     assert len(lit_cols) > 0, "No pixels rendered"
     col_min, col_max = int(lit_cols.min()), int(lit_cols.max())
-    # Two instances separated by 50 px (0.5 inch × 100 px/inch) — range must span > 20 px
+    # Two instances separated by 50 px (0.5 inch x 100 px/inch) — range must span > 20 px
     assert col_max - col_min > 20, (
         f"SR X2 instances too close together: col range [{col_min}, {col_max}]"
     )
@@ -510,14 +512,26 @@ def test_clear_polarity_erases_geometry() -> None:
     ap_code = 10
     # Flash at origin on layer 0 (dark) and layer 1 (clear).
     net_dark = DrawOp(
-        start_x=0.0, start_y=0.0, stop_x=0.0, stop_y=0.0,
-        aperture_index=ap_code, aperture_state=ApertureState.Flash,
-        interpolation=InterpolationMode.Linear, layer_index=0, net_state_index=0,
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
     )
     net_clear = DrawOp(
-        start_x=0.0, start_y=0.0, stop_x=0.0, stop_y=0.0,
-        aperture_index=ap_code, aperture_state=ApertureState.Flash,
-        interpolation=InterpolationMode.Linear, layer_index=1, net_state_index=0,
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=1,
+        net_state_index=0,
     )
     bb = BoundingBox()
     bb.expand(0.0, 0.0, 0.1)

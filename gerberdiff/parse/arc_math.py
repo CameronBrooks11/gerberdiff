@@ -154,7 +154,9 @@ def arc_bounding_box(arc: ArcSegment, aperture_radius: float = 0.0) -> BoundingB
             candidate = axis_angle + 360.0 * k
             if lo <= candidate <= hi:
                 theta_rad = math.radians(axis_angle)
-                bb.expand(cx + r * math.cos(theta_rad), cy + r * math.sin(theta_rad), aperture_radius)
+                bb.expand(
+                    cx + r * math.cos(theta_rad), cy + r * math.sin(theta_rad), aperture_radius
+                )
                 break
 
     return bb

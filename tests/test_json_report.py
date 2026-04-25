@@ -103,7 +103,15 @@ def test_build_report_layer_fields() -> None:
 
 
 def test_build_report_added_layer() -> None:
-    dr = _diff(_layer(name="In1.Cu", status=LayerStatus.Added, layer_type=LayerType.InCu, changed=1000, total=1000))
+    dr = _diff(
+        _layer(
+            name="In1.Cu",
+            status=LayerStatus.Added,
+            layer_type=LayerType.InCu,
+            changed=1000,
+            total=1000,
+        )
+    )
     report = build_report(dr)
     assert report["summary"]["changed_layers"] == 1
     assert report["layers"][0]["status"] == "added"

@@ -21,37 +21,37 @@ from gerberdiff.types import (
 )
 
 __all__ = [
+    "BoundingBox",
+    # Diagnostics
+    "Diagnostic",
+    # Enums
+    "DiagnosticSeverity",
+    # Diff result types
+    "DiffResult",
+    # Exceptions
+    "GerberParseError",
+    "LayerDiffResult",
+    "LayerPair",
+    "LayerStatus",
+    "LayerType",
+    # Core IR types
+    "ParsedImage",
+    "Region",
+    "RegionFill",
+    "SingleLayerDiff",
+    "Viewport",
     # Version
     "__version__",
-    # Parse
-    "parse_gerber",
-    "parse_excellon",
-    # Render
-    "render_to_numpy",
-    "render_to_surface",
-    "Viewport",
-    "compute_viewport",
     # Diff
     "compute_diff",
     "compute_full_diff",
-    "SingleLayerDiff",
+    "compute_viewport",
     # Layer matching
     "match_layers",
-    "LayerPair",
-    # Core IR types
-    "ParsedImage",
-    "BoundingBox",
-    "RegionFill",
-    # Diff result types
-    "DiffResult",
-    "LayerDiffResult",
-    "Region",
-    # Enums
-    "DiagnosticSeverity",
-    "LayerType",
-    "LayerStatus",
-    # Diagnostics
-    "Diagnostic",
-    # Exceptions
-    "GerberParseError",
+    "parse_excellon",
+    # Parse
+    "parse_gerber",
+    # Render
+    "render_to_numpy",
+    "render_to_surface",
 ]

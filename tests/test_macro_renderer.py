@@ -192,6 +192,7 @@ def test_bounding_radius_none_macro() -> None:
 def test_draw_macro_flash_evaluation_failure_emits_warning(monkeypatch) -> None:
     """When evaluate_macro_primitives raises, a UserWarning must be emitted."""
     import pytest
+
     import gerberdiff.render.macro_renderer as _mod
 
     macro = parse_macro_body("C", "1,1,0.05,0,0,0")

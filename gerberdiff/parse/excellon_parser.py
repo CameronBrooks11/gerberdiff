@@ -159,7 +159,11 @@ def _parse_coord_line(
         return current_tool
     if current_tool == 0:
         diagnostics.append(
-            Diagnostic(DiagnosticSeverity.Warning, f"Drill hit with no tool selected (line {lineno})", lineno)
+            Diagnostic(
+                DiagnosticSeverity.Warning,
+                f"Drill hit with no tool selected (line {lineno})",
+                lineno,
+            )
         )
         return current_tool
 
@@ -222,7 +226,7 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
     in_header: bool = False
     lineno: int = 0
 
-    for lineno, raw_line in enumerate(lines, start=1):  # noqa: B007
+    for lineno, raw_line in enumerate(lines, start=1):
         line = raw_line.strip()
 
         if not line or line.startswith(";"):
@@ -267,11 +271,19 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
                 pass  # drill mode / absolute -- ignore
             elif code in ("1", "01"):
                 diagnostics.append(
-                    Diagnostic(DiagnosticSeverity.Warning, "G01 linear rout mode encountered (not drill)", lineno)
+                    Diagnostic(
+                        DiagnosticSeverity.Warning,
+                        "G01 linear rout mode encountered (not drill)",
+                        lineno,
+                    )
                 )
             elif code in ("2", "02", "3", "03"):
                 diagnostics.append(
-                    Diagnostic(DiagnosticSeverity.Warning, "G02/G03 arc rout mode encountered (not drill)", lineno)
+                    Diagnostic(
+                        DiagnosticSeverity.Warning,
+                        "G02/G03 arc rout mode encountered (not drill)",
+                        lineno,
+                    )
                 )
             # Other G codes ignored silently
             continue

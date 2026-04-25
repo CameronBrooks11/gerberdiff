@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import cairocffi as cairo
+import numpy as np
 
 from gerberdiff.render.draw_ops import draw_arc_path, draw_flash, draw_net_as_stroke
 from gerberdiff.types import (
@@ -260,11 +261,17 @@ def test_polygon_flash_rotation_shifts_vertex_positions() -> None:
     """A triangle at rotation=0 and rotation=60 deg render different pixel sets."""
     import numpy as np
 
-    # Flash at origin (0, 0); ctx places origin at centre of 100×100 canvas.
+    # Flash at origin (0, 0); ctx places origin at centre of 100x100 canvas.
     origin_net = DrawOp(
-        start_x=0.0, start_y=0.0, stop_x=0.0, stop_y=0.0,
-        aperture_index=10, aperture_state=ApertureState.Flash,
-        interpolation=InterpolationMode.Linear, layer_index=0, net_state_index=0,
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=10,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
     )
 
     def _render_triangle(rotation_deg: float) -> np.ndarray:
@@ -273,7 +280,11 @@ def test_polygon_flash_rotation_shifts_vertex_positions() -> None:
         ctx.translate(50.0, 50.0)
         ctx.scale(50.0, -50.0)
         ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0)
-        draw_flash(ctx, origin_net, PolygonAperture(outer_diameter=0.8, num_vertices=3, rotation=rotation_deg))
+        draw_flash(
+            ctx,
+            origin_net,
+            PolygonAperture(outer_diameter=0.8, num_vertices=3, rotation=rotation_deg),
+        )
         surface.flush()
         return np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(100, 100, 4)
 
@@ -294,8 +305,7 @@ def test_polygon_flash_rotation_shifts_vertex_positions() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _read_pixels(surface: cairo.ImageSurface, w: int = 100, h: int = 100) -> "np.ndarray":
-    import numpy as np
+def _read_pixels(surface: cairo.ImageSurface, w: int = 100, h: int = 100) -> np.ndarray:
     surface.flush()
     return np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(h, w, 4)
 

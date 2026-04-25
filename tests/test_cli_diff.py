@@ -244,9 +244,7 @@ def test_diff_added_layer_reports_correctly(tmp_path: Path) -> None:
     before.mkdir()
     after.mkdir()
     # Write a minimal gerber only in 'after' so layer is 'added'
-    (after / "test.gbr").write_text(
-        "%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,0.2*%\nD10*\nX0Y0D03*\nM02*\n"
-    )
+    (after / "test.gbr").write_text("%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,0.2*%\nD10*\nX0Y0D03*\nM02*\n")
     result = _run("diff", str(before), str(after), "--width", "64", "--height", "64")
     assert result.exit_code == 0, result.output
 
