@@ -182,3 +182,26 @@ def test_bounding_radius_unit_scale() -> None:
 def test_bounding_radius_none_macro() -> None:
     aperture = MacroAperture(macro_def=None, params=[], unit_scale=1.0)
     assert compute_macro_bounding_radius(aperture) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# P5-2: draw_macro_flash evaluation failure emits UserWarning
+# ---------------------------------------------------------------------------
+
+
+def test_draw_macro_flash_evaluation_failure_emits_warning(monkeypatch) -> None:
+    """When evaluate_macro_primitives raises, a UserWarning must be emitted."""
+    import pytest
+    import gerberdelta.render.macro_renderer as _mod
+
+    macro = parse_macro_body("C", "1,1,0.05,0,0,0")
+    aperture = MacroAperture(macro_def=macro, params=[], unit_scale=1.0)
+    ctx, _ = _make_ctx()
+
+    def _raise(*_a, **_kw):
+        raise ValueError("simulated evaluation failure")
+
+    monkeypatch.setattr(_mod, "evaluate_macro_primitives", _raise)
+
+    with pytest.warns(UserWarning, match="evaluation failed"):
+        draw_macro_flash(ctx, 0.0, 0.0, aperture)

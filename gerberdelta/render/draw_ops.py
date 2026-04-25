@@ -75,10 +75,16 @@ def draw_net_as_stroke(ctx: cairo.Context, net: DrawOp, aperture: Aperture | Non
             ctx.set_line_width(aperture.diameter)
             ctx.set_line_cap(cairo.LINE_CAP_ROUND)
         case RectangleAperture():
-            ctx.set_line_width(min(aperture.width, aperture.height))
+            # NOTE: max(w, h) is used as the stroke width so that the wide
+            # dimension is used for traces where the long axis aligns with the
+            # stroke direction (the common case).  A fully correct Minkowski-sum
+            # stroke requires geometry-aware rendering; see
+            # docs/GEOMETRY_DIFF_NOT_IMPLEMENTED.md.
+            ctx.set_line_width(max(aperture.width, aperture.height))
             ctx.set_line_cap(cairo.LINE_CAP_SQUARE)
         case ObroundAperture():
-            ctx.set_line_width(min(aperture.width, aperture.height))
+            # NOTE: same approximation as RectangleAperture above.
+            ctx.set_line_width(max(aperture.width, aperture.height))
             ctx.set_line_cap(cairo.LINE_CAP_ROUND)
         case PolygonAperture():
             ctx.set_line_width(aperture.outer_diameter)

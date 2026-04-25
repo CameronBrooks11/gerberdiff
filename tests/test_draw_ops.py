@@ -188,3 +188,64 @@ def test_arc_path_cw_no_crash() -> None:
     )
     ctx.new_path()
     draw_arc_path(ctx, arc, clockwise=True)
+
+
+# ---------------------------------------------------------------------------
+# P5-1: Rectangle and obround stroke width uses max(w, h)
+# ---------------------------------------------------------------------------
+
+
+def _count_lit_pixels(surface: cairo.ImageSurface, w: int, h: int) -> int:
+    import numpy as np
+
+    surface.flush()
+    buf = np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(h, w, 4)
+    return int(np.sum(buf[:, :, 3] > 0))
+
+
+def _stroke_surface(aperture, width: int = 100, height: int = 100) -> int:
+    """Return the number of lit pixels when stroking a horizontal line."""
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+    ctx = cairo.Context(surface)
+    ctx.translate(width / 2.0, height / 2.0)
+    ctx.scale(50.0, -50.0)
+    ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+    net = DrawOp(
+        start_x=-0.5,
+        start_y=0.0,
+        stop_x=0.5,
+        stop_y=0.0,
+        aperture_index=10,
+        aperture_state=ApertureState.On,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    draw_net_as_stroke(ctx, net, aperture)
+    return _count_lit_pixels(surface, width, height)
+
+
+def test_rectangle_stroke_wide_aperture_produces_wider_stroke_than_narrow() -> None:
+    """max(w,h) ensures the wide dimension is used for the stroke width.
+
+    RectangleAperture(0.5, 0.1): max=0.5 → 25 px wide at 50 px/inch.
+    RectangleAperture(0.1, 0.5): max=0.5 → same 25 px wide.
+    Both should produce far more pixels than CircleAperture(diameter=0.1) → 5 px.
+    """
+    wide_horizontal = _stroke_surface(RectangleAperture(width=0.5, height=0.1))
+    wide_vertical = _stroke_surface(RectangleAperture(width=0.1, height=0.5))
+    narrow_reference = _stroke_surface(CircleAperture(diameter=0.1))
+
+    assert wide_horizontal > narrow_reference * 3, (
+        f"wide_horizontal={wide_horizontal} should be >> narrow={narrow_reference}"
+    )
+    assert wide_vertical > narrow_reference * 3, (
+        f"wide_vertical={wide_vertical} should be >> narrow={narrow_reference}"
+    )
+
+
+def test_obround_stroke_wide_aperture_uses_max_dimension() -> None:
+    """ObroundAperture(0.4, 0.1): max=0.4 → wider stroke than CircleAperture(0.1)."""
+    wide = _stroke_surface(ObroundAperture(width=0.4, height=0.1))
+    narrow = _stroke_surface(CircleAperture(diameter=0.1))
+    assert wide > narrow * 2, f"wide={wide} should be >> narrow={narrow}"

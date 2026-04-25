@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import cairocffi as cairo
 
@@ -38,7 +39,12 @@ def draw_macro_flash(
         return
     try:
         primitives = evaluate_macro_primitives(aperture.macro_def, aperture.params)
-    except Exception:  # pragma: no cover
+    except Exception as exc:
+        warnings.warn(
+            f"Macro '{aperture.macro_def.name}' evaluation failed: {exc}",
+            UserWarning,
+            stacklevel=2,
+        )
         return
 
     scale = aperture.unit_scale
