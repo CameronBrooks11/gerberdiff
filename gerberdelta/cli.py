@@ -252,7 +252,7 @@ def diff_cmd(
     from gerberdelta.export.png_export import build_overlay_png
     from gerberdelta.parse.excellon_parser import parse_excellon
     from gerberdelta.parse.gerber_state import parse_gerber
-    from gerberdelta.types import DiffResult, LayerDiffResult
+    from gerberdelta.types import DiffResult, LayerDiffResult, ParsedImage
 
     # Parse --align-offset
     try:
@@ -326,7 +326,7 @@ def diff_cmd(
             )
             sys.exit(2)
 
-        def _parse(path: Path) -> object:
+        def _parse(path: Path) -> ParsedImage:
             try:
                 content = path.read_text(errors="replace")
             except OSError as exc:
@@ -336,10 +336,8 @@ def diff_cmd(
                 return parse_excellon(content, source_path=path)
             return parse_gerber(content, source_path=path)
 
-        from gerberdelta.types import ParsedImage as _PI
-
-        img_a: _PI = _parse(pair.before_path)  # type: ignore[assignment]
-        img_b: _PI = _parse(pair.after_path)  # type: ignore[assignment]
+        img_a = _parse(pair.before_path)
+        img_b = _parse(pair.after_path)
 
         # Abort on parse errors.
         for img, path in ((img_a, pair.before_path), (img_b, pair.after_path)):
@@ -351,6 +349,35 @@ def diff_cmd(
                 elif diag.severity == DiagnosticSeverity.Warning and not quiet:
                     click.echo(f"warning: {path.name}: {diag.message}{loc}", err=True)
 
+        # PNG overlay per matched layer
+        if out_png_dir is not None:
+            png_path = out_png_dir / f"{pair.name}_diff.png"
+
+            def _write_overlay(
+                arr_a: object,
+                arr_b: object,
+                xor: object,
+                _path: Path = png_path,
+            ) -> None:
+                import numpy as _np
+
+                try:
+                    build_overlay_png(
+                        _np.asarray(arr_a),
+                        _np.asarray(arr_b),
+                        _np.asarray(xor),
+                        _path,
+                        show_common=png_show_common,
+                        overwrite=overwrite,
+                    )
+                except FileExistsError as exc:
+                    click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
+                    sys.exit(1)
+
+            overlay_cb = _write_overlay
+        else:
+            overlay_cb = None
+
         result = compute_diff(
             img_a,
             img_b,
@@ -359,6 +386,7 @@ def diff_cmd(
             alignment_offset=alignment_offset,
             min_pixel_count=min_pixels,
             merge_tolerance=merge_tolerance,
+            overlay_callback=overlay_cb,
         )
 
         lr = LayerDiffResult(
@@ -382,22 +410,6 @@ def diff_cmd(
                     f"    region {region.id}: {region.pixel_count} px  "
                     f"centroid=({region.centroid_x:.4f}, {region.centroid_y:.4f})"
                 )
-
-        # PNG overlay per matched layer
-        if out_png_dir is not None:
-            png_path = out_png_dir / f"{pair.name}_diff.png"
-            try:
-                build_overlay_png(
-                    result.arr_a,
-                    result.arr_b,
-                    result.xor,
-                    png_path,
-                    show_common=png_show_common,
-                    overwrite=overwrite,
-                )
-            except FileExistsError as exc:
-                click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
-                sys.exit(1)
 
     # Build DiffResult
     has_changes = any(lr.changed_pixel_count > 0 or lr.status != LayerStatus.Matched for lr in layer_results)

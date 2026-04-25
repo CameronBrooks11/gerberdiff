@@ -18,6 +18,7 @@ the ``ParsedImage`` IR convention.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import replace as dc_replace
 
@@ -43,9 +44,6 @@ from gerberdelta.types import BoundingBox, ParsedImage, Region
 class SingleLayerDiff:
     """Full output of a single-layer pixel diff."""
 
-    arr_a: np.ndarray  # rendered image A, shape (H, W, 4) uint8
-    arr_b: np.ndarray  # rendered image B, shape (H, W, 4) uint8
-    xor: np.ndarray  # channel-wise XOR, shape (H, W, 4) uint8
     regions: list[Region]
     viewport: Viewport
     changed_pixel_count: int
@@ -65,6 +63,7 @@ def compute_diff(
     alignment_offset: tuple[float, float] | None = None,
     min_pixel_count: int = 4,
     merge_tolerance: float = 0.05,
+    overlay_callback: Callable[[np.ndarray, np.ndarray, np.ndarray], None] | None = None,
 ) -> SingleLayerDiff:
     """Render both images to a shared viewport and compute the pixel diff.
 
@@ -82,6 +81,10 @@ def compute_diff(
     merge_tolerance:
         Bounding-box padding (inches) used when deciding whether to merge two
         nearby regions into one.
+    overlay_callback:
+        Optional callable invoked with ``(arr_a, arr_b, xor)`` before the
+        arrays are released.  Use this to write a PNG overlay without keeping
+        all three ``(H, W, 4)`` arrays live simultaneously.
     """
     bbox = merge_bounding_boxes(image_a.bounding_box, image_b.bounding_box)
     vp = compute_viewport(bbox, width, height)
@@ -96,10 +99,10 @@ def compute_diff(
     regions = _ccl_and_extract(mask, vp, min_pixel_count)
     regions = merge_overlapping_regions(regions, tolerance=merge_tolerance)
 
+    if overlay_callback is not None:
+        overlay_callback(arr_a, arr_b, xor)
+
     return SingleLayerDiff(
-        arr_a=arr_a,
-        arr_b=arr_b,
-        xor=xor,
         regions=regions,
         viewport=vp,
         changed_pixel_count=int(mask.sum()),

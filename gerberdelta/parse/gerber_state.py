@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from gerberdelta.parse.arc_math import compute_arc_multi_quadrant, compute_arc_single_quadrant
@@ -75,6 +76,19 @@ _COMMAND_PREFIXES: frozenset[str] = frozenset(
 )
 
 
+@dataclass
+class _BlockFrame:
+    """Saved state for a single level of block-aperture nesting."""
+
+    d_code: int
+    block_ap: BlockAperture
+    saved_nets: list[DrawOp]
+    saved_layers: list[LayerState]
+    saved_apertures: dict[int, Aperture]
+    saved_bbox: BoundingBox
+    saved_layer_idx: int
+
+
 # ---------------------------------------------------------------------------
 # Internal parser class
 # ---------------------------------------------------------------------------
@@ -135,19 +149,9 @@ class _GerberParser:
         self._aperture_attrs: dict[str, str] = {}
 
         # ---- block aperture stack ----
-        # Each entry: (d_code, block_ap, saved_nets, saved_layers,
-        #              saved_apertures, saved_bbox, saved_layer_idx)
-        self._block_stack: list[
-            tuple[
-                int,
-                BlockAperture,
-                list[DrawOp],
-                list[LayerState],
-                dict[int, Aperture],
-                BoundingBox,
-                int,
-            ]
-        ] = []
+        # Each frame saves state so that when %AB*% closes the block the
+        # parent drawing context is fully restored.
+        self._block_stack: list[_BlockFrame] = []
 
     # ------------------------------------------------------------------
     # Small helpers
@@ -535,14 +539,14 @@ class _GerberParser:
 
             # Save parent state and redirect emission into the block.
             self._block_stack.append(
-                (
-                    d_code,
-                    block_ap,
-                    self._nets,
-                    self._layers,
-                    self._apertures,
-                    self._bbox,
-                    self._current_layer_idx,
+                _BlockFrame(
+                    d_code=d_code,
+                    block_ap=block_ap,
+                    saved_nets=self._nets,
+                    saved_layers=self._layers,
+                    saved_apertures=self._apertures,
+                    saved_bbox=self._bbox,
+                    saved_layer_idx=self._current_layer_idx,
                 )
             )
 
@@ -560,29 +564,21 @@ class _GerberParser:
             if not self._block_stack:
                 self._warn("Unexpected AB close without matching open", line)
                 return
-            (
-                d_code,
-                block_ap,
-                saved_nets,
-                saved_layers,
-                saved_apertures,
-                saved_bbox,
-                saved_layer_idx,
-            ) = self._block_stack.pop()
+            frame = self._block_stack.pop()
 
             # Capture the block's accumulated state.
-            block_ap.apertures = self._apertures
-            block_ap.bounding_box = self._bbox
+            frame.block_ap.apertures = self._apertures
+            frame.block_ap.bounding_box = self._bbox
 
             # Restore parent state.
-            self._nets = saved_nets
-            self._layers = saved_layers
-            self._apertures = saved_apertures
-            self._bbox = saved_bbox
-            self._current_layer_idx = saved_layer_idx
+            self._nets = frame.saved_nets
+            self._layers = frame.saved_layers
+            self._apertures = frame.saved_apertures
+            self._bbox = frame.saved_bbox
+            self._current_layer_idx = frame.saved_layer_idx
 
             # Register the completed block aperture in the parent aperture dict.
-            self._apertures[d_code] = block_ap
+            self._apertures[frame.d_code] = frame.block_ap
 
     def _handle_sr(self, params: str, line: int) -> None:
         """Handle the SR body after stripping the 'SR' prefix."""

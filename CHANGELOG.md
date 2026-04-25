@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-04-25
+
+### Added
+
+- **Public Python API** (`gerberdelta/__init__.py`) -- `parse_gerber`,
+  `parse_excellon`, `render_to_surface`, `render_to_numpy`, and `compute_diff`
+  are now exported from the top-level package with an `__all__` list. Added a
+  `## Python API` section to `README.md` with example usage.
+
+### Changed
+
+- **`SingleLayerDiff` no longer stores raw pixel arrays** -- `arr_a`, `arr_b`,
+  and `xor` (three `~48 MB` numpy arrays at 2048²) have been removed from the
+  dataclass. Callers that need a PNG overlay pass an `overlay_callback:
+  Callable[[ndarray, ndarray, ndarray], None]` to `compute_diff()`; the callback
+  is invoked before the arrays are released. The diff CLI uses this callback to
+  write the overlay PNG without ever holding all three arrays simultaneously.
+
+- **`_parse` closure in `diff_cmd` returns `ParsedImage`** -- the return type
+  annotation was `object` with `# type: ignore[assignment]`; it is now correctly
+  typed as `ParsedImage`, and the ignore comment is removed.
+
+- **`_GerberParser._block_stack` uses `_BlockFrame` dataclass** -- replaces the
+  unnamed 7-tuple `(d_code, block_ap, saved_nets, saved_layers, saved_apertures,
+  saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
+  field access is explicit and mypy-checked.
+
+### Fixed
+
+- **Dead `changed`/yellow pixel path removed from `png_export.py`** -- both
+  images are rendered with the same colour scheme so the `changed` mask (pixels
+  present in both A and B with different colour values) is structurally always
+  empty. The unreachable `out[changed] = [0, 255, 255, 255]` line and the
+  `changed` variable have been removed.
+
 ## [0.18.0] - 2026-04-25
 
 ### Changed

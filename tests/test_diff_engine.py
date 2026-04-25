@@ -239,10 +239,28 @@ def test_compute_diff_identical_no_changes() -> None:
 
 
 @pytest.mark.skipif(not _FCU_BEFORE.exists(), reason="fixture not found")
-def test_compute_diff_result_arrays_shape() -> None:
+def test_compute_diff_overlay_callback_called() -> None:
+    """overlay_callback receives (arr_a, arr_b, xor) each shape (H,W,4) uint8."""
     img = parse_gerber(_FCU_BEFORE.read_text(encoding="utf-8"), source_path=_FCU_BEFORE)
-    result = compute_diff(img, img, width=128, height=128)
-    assert result.arr_a.shape == (128, 128, 4)
-    assert result.arr_b.shape == (128, 128, 4)
-    assert result.xor.shape == (128, 128, 4)
-    assert result.arr_a.dtype == np.uint8
+
+    captured: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
+
+    def _cb(a: np.ndarray, b: np.ndarray, x: np.ndarray) -> None:
+        captured.append((a, b, x))
+
+    result = compute_diff(img, img, width=128, height=128, overlay_callback=_cb)
+    assert len(captured) == 1
+    a, b, x = captured[0]
+    assert a.shape == (128, 128, 4)
+    assert b.shape == (128, 128, 4)
+    assert x.shape == (128, 128, 4)
+    assert a.dtype == np.uint8
+    assert result.changed_pixel_count == 0  # identical images
+
+
+@pytest.mark.skipif(not _FCU_BEFORE.exists(), reason="fixture not found")
+def test_compute_diff_no_callback_no_error() -> None:
+    """overlay_callback=None (default) must not raise."""
+    img = parse_gerber(_FCU_BEFORE.read_text(encoding="utf-8"), source_path=_FCU_BEFORE)
+    result = compute_diff(img, img, width=64, height=64)
+    assert result.changed_pixel_count == 0

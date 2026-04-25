@@ -104,6 +104,27 @@ gerberdelta diff before/ after/ --align-offset 0.5,0    # shift board B by 0.5 i
 }
 ```
 
+## Python API
+
+```python
+import gerberdelta
+
+# Parse
+img = gerberdelta.parse_gerber(Path("board.gbr").read_text())
+img = gerberdelta.parse_excellon(Path("board.drl").read_text())
+
+# Render to numpy array (H, W, 4) uint8 BGRA
+from gerberdelta.render.viewport import compute_viewport
+vp = compute_viewport(img.bounding_box, width=1024, height=1024)
+arr = gerberdelta.render_to_numpy(img, vp)
+
+# Diff two revisions
+before = gerberdelta.parse_gerber(Path("before/F.Cu.gbr").read_text())
+after  = gerberdelta.parse_gerber(Path("after/F.Cu.gbr").read_text())
+diff = gerberdelta.compute_diff(before, after, width=1024, height=1024)
+print(f"{diff.changed_pixel_count} changed pixels across {len(diff.regions)} regions")
+```
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, test, and lint commands.
