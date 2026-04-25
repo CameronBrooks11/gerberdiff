@@ -12,8 +12,8 @@ Batching rules
 * ``ApertureState.Flash`` + ``MacroAperture`` -> ``MacroFlash`` (one per net)
 * ``ApertureState.Flash`` + ``BlockAperture`` -> ``BlockFlash`` (one per net)
 * ``ApertureState.On`` -> ``StrokeBatch`` (grouped by aperture_code)
-* ``InterpolationMode.RegionStart`` ... ``RegionEnd`` -> ``RegionGroup``
-* ``ApertureState.Off`` outside a region flushes any open stroke batch.
+* ``RegionFill`` -> ``RegionGroup``
+* ``ApertureState.Off`` flushes any open stroke batch.
 
 Layer boundaries flush all open batches.
 """
@@ -28,7 +28,6 @@ from gerberdelta.types import (
     BlockAperture,
     CircleAperture,
     DrawOp,
-    InterpolationMode,
     MacroAperture,
     MirrorState,
     ObroundAperture,
@@ -36,6 +35,7 @@ from gerberdelta.types import (
     Polarity,
     PolygonAperture,
     RectangleAperture,
+    RegionFill,
     StepAndRepeat,
 )
 
@@ -153,7 +153,6 @@ def compile_render(parsed_image: ParsedImage) -> CompiledRender:
         compiled.layers.append(cl)
 
     # Mutable batching state (closed over by the flush helpers below).
-    current_region: RegionGroup | None = None
     pending_flash: FlashBatch | None = None
     pending_stroke: StrokeBatch | None = None
     # The layer that owns the two pending batches.
@@ -177,7 +176,17 @@ def compile_render(parsed_image: ParsedImage) -> CompiledRender:
         _flush_stroke()
         batch_layer = new_layer
 
-    for net in parsed_image.draw_ops:
+    for item in parsed_image.draw_ops:
+        if isinstance(item, RegionFill):
+            layer = layer_map.get(item.layer_index)
+            if layer is not None:
+                _flush_flash()
+                _flush_stroke()
+                if item.segments:
+                    layer.groups.append(RegionGroup(nets=list(item.segments)))
+            continue
+
+        net = item
         layer = layer_map.get(net.layer_index)
         if layer is None:
             continue
@@ -185,24 +194,6 @@ def compile_render(parsed_image: ParsedImage) -> CompiledRender:
         # Flush open batches whenever the active layer changes.
         if batch_layer is not layer:
             _switch_layer(layer)
-
-        # ---- Region boundary markers ----
-        if net.interpolation == InterpolationMode.RegionStart:
-            _flush_flash()
-            _flush_stroke()
-            current_region = RegionGroup()
-            continue
-
-        if net.interpolation == InterpolationMode.RegionEnd:
-            if current_region is not None and current_region.nets:
-                layer.groups.append(current_region)
-            current_region = None
-            continue
-
-        # ---- Inside a region: accumulate all nets regardless of state ----
-        if current_region is not None:
-            current_region.nets.append(net)
-            continue
 
         # ---- Flash (D03) ----
         if net.aperture_state == ApertureState.Flash:

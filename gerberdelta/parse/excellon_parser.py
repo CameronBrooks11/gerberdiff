@@ -15,6 +15,7 @@ from gerberdelta.types import (
     InterpolationMode,
     LayerState,
     ParsedImage,
+    RegionFill,
     UnitType,
 )
 
@@ -119,7 +120,7 @@ def parse_excellon(content: str, source_path: Path | None = None) -> ParsedImage
     )
     format_seen: bool = False
     apertures: dict[int, CircleAperture] = {}
-    nets: list[DrawOp] = []
+    nets: list[DrawOp | RegionFill] = []
     bbox = BoundingBox()
     diagnostics: list[Diagnostic] = []
     current_tool: int = 0

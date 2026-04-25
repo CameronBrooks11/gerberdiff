@@ -70,7 +70,8 @@ def test_block_aperture_nets_captured() -> None:
     assert isinstance(block, BlockAperture)
     assert len(block.draw_ops) == 2
     # Flash nets
-    assert all(n.aperture_state == ApertureState.Flash for n in block.draw_ops)
+    from gerberdelta.types import DrawOp
+    assert all(isinstance(n, DrawOp) and n.aperture_state == ApertureState.Flash for n in block.draw_ops)
 
 
 def test_block_aperture_nets_not_in_parent() -> None:

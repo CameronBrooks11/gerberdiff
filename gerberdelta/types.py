@@ -36,8 +36,6 @@ class InterpolationMode(StrEnum):
     Linear = "linear"
     ClockwiseCircular = "cw"
     CounterClockwiseCircular = "ccw"
-    RegionStart = "region_start"
-    RegionEnd = "region_end"
 
 
 class Polarity(StrEnum):
@@ -196,6 +194,19 @@ class DrawOp:
 
 
 @dataclass
+class RegionFill:
+    """A filled region produced by a G36..G37 block.
+
+    ``segments`` are the ``DrawOp`` objects from inside the region (G36/G37
+    are not included).  All coordinates in inches.
+    """
+
+    layer_index: int
+    net_state_index: int
+    segments: list[DrawOp]
+
+
+@dataclass
 class Diagnostic:
     severity: DiagnosticSeverity
     message: str
@@ -250,7 +261,7 @@ class MacroAperture:
 @dataclass
 class BlockAperture:
     aperture_type: Literal[ApertureType.Block] = ApertureType.Block
-    draw_ops: list[DrawOp] = field(default_factory=list)
+    draw_ops: list[DrawOp | RegionFill] = field(default_factory=list)
     apertures: dict[int, Aperture] = field(default_factory=dict)
     layers: list[LayerState] = field(default_factory=list)
     bounding_box: BoundingBox = field(default_factory=BoundingBox)
@@ -276,7 +287,7 @@ Aperture: TypeAlias = (
 class ParsedImage:
     """The complete output of parsing one Gerber or Excellon file."""
 
-    draw_ops: list[DrawOp]
+    draw_ops: list[DrawOp | RegionFill]
     apertures: dict[int, Aperture]  # D-code -> aperture
     layers: list[LayerState]
     coord_states: list[CoordState]

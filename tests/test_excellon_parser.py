@@ -5,10 +5,17 @@ from pathlib import Path
 import pytest
 
 from gerberdelta.parse.excellon_parser import _apply_format, _FormatSpec, parse_excellon
-from gerberdelta.types import ApertureState, ApertureType, DiagnosticSeverity, UnitType
+from gerberdelta.types import ApertureState, ApertureType, DiagnosticSeverity, DrawOp, RegionFill, UnitType
 
 _FIXTURES = Path(__file__).parent / "fixtures" / "gerbers-before"
 _FIXTURES_ROOT = Path(__file__).parent / "fixtures"
+
+
+def _op(img_draw_ops: list[DrawOp | RegionFill], idx: int = 0) -> DrawOp:
+    """Return draw_ops[idx] as a DrawOp (Excellon never emits RegionFill)."""
+    op = img_draw_ops[idx]
+    assert isinstance(op, DrawOp)
+    return op
 
 
 def test_parse_minimal_excellon() -> None:
@@ -17,21 +24,21 @@ def test_parse_minimal_excellon() -> None:
     assert 1 in img.apertures
     assert img.apertures[1].aperture_type == ApertureType.Circle
     assert len(img.draw_ops) == 1
-    assert img.draw_ops[0].aperture_state == ApertureState.Flash
+    assert _op(img.draw_ops).aperture_state == ApertureState.Flash
 
 
 def test_excellon_coordinates_in_inches() -> None:
     # 25.4 mm -> 1.0 inch
     content = "M48\nMETRIC,LZ\nT01C25.4\n%\nT01\nX25.4Y0.0\nM30\n"
     img = parse_excellon(content)
-    assert abs(img.draw_ops[0].stop_x - 1.0) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - 1.0) < 1e-6
 
 
 def test_excellon_inch_unit_unchanged() -> None:
     content = "M48\nINCH,LZ\nT01C0.1\n%\nT01\nX1.0Y0.5\nM30\n"
     img = parse_excellon(content)
-    assert abs(img.draw_ops[0].stop_x - 1.0) < 1e-6
-    assert abs(img.draw_ops[0].stop_y - 0.5) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - 1.0) < 1e-6
+    assert abs(_op(img.draw_ops).stop_y - 0.5) < 1e-6
 
 
 def test_excellon_bbox_valid() -> None:
@@ -138,8 +145,8 @@ def test_excellon_integer_format_metric_lz_inline() -> None:
     assert len(img.draw_ops) == 1
     expected_x = 5.0 / 25.4
     expected_y = 10.0 / 25.4
-    assert abs(img.draw_ops[0].stop_x - expected_x) < 1e-6
-    assert abs(img.draw_ops[0].stop_y - expected_y) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - expected_x) < 1e-6
+    assert abs(_op(img.draw_ops).stop_y - expected_y) < 1e-6
 
 
 def test_excellon_integer_format_inch_tz_inline() -> None:
@@ -148,8 +155,8 @@ def test_excellon_integer_format_inch_tz_inline() -> None:
     content = "M48\nFMAT,2\nINCH,TZ\nT01C0.031\n%\nT01\nX01Y02\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
-    assert abs(img.draw_ops[0].stop_x - 1.0) < 1e-6
-    assert abs(img.draw_ops[0].stop_y - 2.0) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - 1.0) < 1e-6
+    assert abs(_op(img.draw_ops).stop_y - 2.0) < 1e-6
 
 
 def test_excellon_integer_format_decimal_overrides_spec() -> None:
@@ -157,8 +164,8 @@ def test_excellon_integer_format_decimal_overrides_spec() -> None:
     content = "M48\nFMAT,2\nMETRIC,LZ\nT01C0.800\n%\nT01\nX1.234Y5.678\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
-    assert abs(img.draw_ops[0].stop_x - 1.234 / 25.4) < 1e-6
-    assert abs(img.draw_ops[0].stop_y - 5.678 / 25.4) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - 1.234 / 25.4) < 1e-6
+    assert abs(_op(img.draw_ops).stop_y - 5.678 / 25.4) < 1e-6
 
 
 def test_excellon_integer_format_negative_coords() -> None:
@@ -167,8 +174,8 @@ def test_excellon_integer_format_negative_coords() -> None:
     content = "M48\nFMAT,2\nMETRIC,LZ\nT01C0.800\n%\nT01\nX-5000Y-10000\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
-    assert abs(img.draw_ops[0].stop_x - (-5.0 / 25.4)) < 1e-6
-    assert abs(img.draw_ops[0].stop_y - (-10.0 / 25.4)) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - (-5.0 / 25.4)) < 1e-6
+    assert abs(_op(img.draw_ops).stop_y - (-10.0 / 25.4)) < 1e-6
 
 
 def test_excellon_explicit_digit_counts_in_header() -> None:
@@ -177,8 +184,8 @@ def test_excellon_explicit_digit_counts_in_header() -> None:
     content = "M48\nFMAT,2\nMETRIC,LZ,0000.0000\nT01C0.800\n%\nT01\nX50000Y100000\nM30\n"
     img = parse_excellon(content)
     assert len(img.draw_ops) == 1
-    assert abs(img.draw_ops[0].stop_x - 5.0 / 25.4) < 1e-6
-    assert abs(img.draw_ops[0].stop_y - 10.0 / 25.4) < 1e-6
+    assert abs(_op(img.draw_ops).stop_x - 5.0 / 25.4) < 1e-6
+    assert abs(_op(img.draw_ops).stop_y - 10.0 / 25.4) < 1e-6
 
 
 def test_excellon_no_format_emits_warning() -> None:
@@ -198,7 +205,7 @@ def test_excellon_integer_format_metric_lz_fixture() -> None:
     assert len(img.draw_ops) == 2
     assert img.bounding_box.is_valid
     # T01 hit: X5000Y10000 → 5.0 mm, 10.0 mm → inches
-    op = img.draw_ops[0]
+    op = _op(img.draw_ops)
     assert abs(op.stop_x - 5.0 / 25.4) < 1e-6
     assert abs(op.stop_y - 10.0 / 25.4) < 1e-6
 
@@ -212,6 +219,6 @@ def test_excellon_integer_format_inch_tz_fixture() -> None:
     assert len(img.draw_ops) == 2
     assert img.bounding_box.is_valid
     # T01 hit: X01Y02 → 1.0 inch, 2.0 inch (already in inches, no conversion)
-    op = img.draw_ops[0]
+    op = _op(img.draw_ops)
     assert abs(op.stop_x - 1.0) < 1e-6
     assert abs(op.stop_y - 2.0) < 1e-6

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-04-25
+
+### Changed
+
+- **`RegionFill` IR redesign** -- G36/G37 region fill boundaries are no
+  longer stored as sentinel `DrawOp` objects with
+  `InterpolationMode.RegionStart` / `RegionEnd`. A new `RegionFill`
+  dataclass (`layer_index`, `net_state_index`, `segments: list[DrawOp]`)
+  is emitted by the parser as a single item. `ParsedImage.draw_ops` and
+  `BlockAperture.draw_ops` are now typed `list[DrawOp | RegionFill]`.
+  `InterpolationMode.RegionStart` and `InterpolationMode.RegionEnd` are
+  removed. `compiled_render.py` handles `RegionFill` directly without a
+  state-machine sentinel scan. `RegionFill` is exported from the public
+  API. Unclosed G36 at M02 now correctly emits a `Warning` diagnostic.
+
 ## [0.20.0] - 2026-04-25
 
 ### Changed

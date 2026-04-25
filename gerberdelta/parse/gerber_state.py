@@ -31,6 +31,7 @@ from gerberdelta.types import (
     Polarity,
     PolygonAperture,
     RectangleAperture,
+    RegionFill,
     StepAndRepeat,
     UnitType,
     ZeroOmission,
@@ -82,7 +83,7 @@ class _BlockFrame:
 
     d_code: int
     block_ap: BlockAperture
-    saved_nets: list[DrawOp]
+    saved_nets: list[DrawOp | RegionFill]
     saved_layers: list[LayerState]
     saved_apertures: dict[int, Aperture]
     saved_bbox: BoundingBox
@@ -102,7 +103,7 @@ class _GerberParser:
         self._fmt: FormatStatement = _DEFAULT_FORMAT
         self._fmt_seen: bool = False
         self._apertures: dict[int, Aperture] = {}
-        self._nets: list[DrawOp] = []
+        self._nets: list[DrawOp | RegionFill] = []
         self._layers: list[LayerState] = [LayerState()]
         self._net_states: list[CoordState] = [CoordState()]
         self._bbox: BoundingBox = BoundingBox()
@@ -134,6 +135,9 @@ class _GerberParser:
         self._interpolation: InterpolationMode = InterpolationMode.Linear
         self._multi_quadrant: bool = False
         self._in_region_fill: bool = False
+        self._region_start_layer_idx: int = 0
+        self._region_start_net_state_idx: int = 0
+        self._region_segments: list[DrawOp] = []
         self._current_layer_idx: int = 0
         self._current_net_state_idx: int = 0
         self._unit: UnitType = UnitType.Inch
@@ -289,7 +293,10 @@ class _GerberParser:
             arc_segment=arc_segment,
             attributes=dict(self._net_attrs) if self._net_attrs else None,
         )
-        self._nets.append(net)
+        if self._in_region_fill:
+            self._region_segments.append(net)
+        else:
+            self._nets.append(net)
 
         # Expand bounding box
         r = self._aperture_radius()
@@ -313,34 +320,19 @@ class _GerberParser:
             self._interpolation = InterpolationMode.CounterClockwiseCircular
         elif value == 36:
             self._in_region_fill = True
-            self._nets.append(
-                DrawOp(
-                    start_x=self._prev_x,
-                    start_y=self._prev_y,
-                    stop_x=self._prev_x,
-                    stop_y=self._prev_y,
-                    aperture_index=self._current_aperture,
-                    aperture_state=ApertureState.Off,
-                    interpolation=InterpolationMode.RegionStart,
-                    layer_index=self._current_layer_idx,
-                    net_state_index=self._current_net_state_idx,
-                )
-            )
+            self._region_start_layer_idx = self._current_layer_idx
+            self._region_start_net_state_idx = self._current_net_state_idx
+            self._region_segments = []
         elif value == 37:
             self._in_region_fill = False
             self._nets.append(
-                DrawOp(
-                    start_x=self._prev_x,
-                    start_y=self._prev_y,
-                    stop_x=self._prev_x,
-                    stop_y=self._prev_y,
-                    aperture_index=self._current_aperture,
-                    aperture_state=ApertureState.Off,
-                    interpolation=InterpolationMode.RegionEnd,
-                    layer_index=self._current_layer_idx,
-                    net_state_index=self._current_net_state_idx,
+                RegionFill(
+                    layer_index=self._region_start_layer_idx,
+                    net_state_index=self._region_start_net_state_idx,
+                    segments=self._region_segments,
                 )
             )
+            self._region_segments = []
         elif value in (54, 55, 70, 71):
             # 54/55: deprecated aperture select/flash -- ignore
             # 70/71: deprecated inch/mm (should use MO instead) -- update unit
@@ -647,6 +639,8 @@ class _GerberParser:
 
             elif tt == TokenType.M:
                 if isinstance(token.value, int) and token.value == 2:
+                    if self._in_region_fill:
+                        self._warn("Region fill not closed at end of file", line)
                     self._done = True
                     break
 

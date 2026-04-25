@@ -32,6 +32,7 @@ from gerberdelta.types import (
     MirrorState,
     ParsedImage,
     Polarity,
+    RegionFill,
     StepAndRepeat,
 )
 
@@ -60,7 +61,6 @@ def _net(
     *,
     aperture_index: int = 10,
     aperture_state: ApertureState = ApertureState.Flash,
-    interpolation: InterpolationMode = InterpolationMode.Linear,
     stop_x: float = 0.1,
     stop_y: float = 0.1,
     layer_index: int = 0,
@@ -72,16 +72,20 @@ def _net(
         stop_y=stop_y,
         aperture_index=aperture_index,
         aperture_state=aperture_state,
-        interpolation=interpolation,
+        interpolation=InterpolationMode.Linear,
         layer_index=layer_index,
         net_state_index=0,
     )
 
 
-def _image_with_nets(nets: list[DrawOp], apertures: dict[int, Aperture] | None = None) -> ParsedImage:
+def _image_with_nets(nets: list[DrawOp | RegionFill], apertures: dict[int, Aperture] | None = None) -> ParsedImage:
     bb = BoundingBox()
     for n in nets:
-        bb.expand(n.stop_x, n.stop_y)
+        if isinstance(n, DrawOp):
+            bb.expand(n.stop_x, n.stop_y)
+        else:
+            for s in n.segments:
+                bb.expand(s.stop_x, s.stop_y)
     return ParsedImage(
         draw_ops=nets,
         apertures=apertures or {10: CircleAperture(diameter=0.01)},
@@ -106,7 +110,7 @@ def test_compile_empty_image() -> None:
 
 def test_compile_flash_batch_groups_by_aperture() -> None:
     """Three flashes on the same aperture -> one FlashBatch with three nets."""
-    nets = [
+    nets: list[DrawOp | RegionFill] = [
         _net(aperture_index=10, aperture_state=ApertureState.Flash, stop_x=0.1),
         _net(aperture_index=10, aperture_state=ApertureState.Flash, stop_x=0.2),
         _net(aperture_index=10, aperture_state=ApertureState.Flash, stop_x=0.3),
@@ -121,7 +125,7 @@ def test_compile_flash_batch_groups_by_aperture() -> None:
 
 def test_compile_flash_batch_splits_on_aperture_change() -> None:
     """Two different apertures -> two FlashBatch groups."""
-    nets = [
+    nets: list[DrawOp | RegionFill] = [
         _net(aperture_index=10, aperture_state=ApertureState.Flash, stop_x=0.1),
         _net(aperture_index=11, aperture_state=ApertureState.Flash, stop_x=0.2),
     ]
@@ -137,7 +141,7 @@ def test_compile_flash_batch_splits_on_aperture_change() -> None:
 
 def test_compile_stroke_batch() -> None:
     """Consecutive On-state nets -> one StrokeBatch."""
-    nets = [
+    nets: list[DrawOp | RegionFill] = [
         _net(aperture_index=10, aperture_state=ApertureState.On, stop_x=0.1),
         _net(aperture_index=10, aperture_state=ApertureState.On, stop_x=0.2),
     ]
@@ -149,14 +153,13 @@ def test_compile_stroke_batch() -> None:
 
 
 def test_compile_region_group() -> None:
-    """RegionStart ... RegionEnd nets -> one RegionGroup."""
-    nets = [
-        _net(interpolation=InterpolationMode.RegionStart, aperture_state=ApertureState.Off),
+    """RegionFill in draw_ops -> one RegionGroup with the region's segments."""
+    segments = [
         _net(aperture_state=ApertureState.On, stop_x=0.1),
         _net(aperture_state=ApertureState.On, stop_x=0.2),
-        _net(interpolation=InterpolationMode.RegionEnd, aperture_state=ApertureState.Off),
     ]
-    cr = compile_render(_image_with_nets(nets))
+    region = RegionFill(layer_index=0, net_state_index=0, segments=segments)
+    cr = compile_render(_image_with_nets([region]))
     groups = cr.layers[0].groups
     assert len(groups) == 1
     assert isinstance(groups[0], RegionGroup)
@@ -165,7 +168,7 @@ def test_compile_region_group() -> None:
 
 def test_compile_holed_flash() -> None:
     """Flash on an aperture with hole_diameter set -> HoledFlash."""
-    nets = [_net(aperture_index=10, aperture_state=ApertureState.Flash)]
+    nets: list[DrawOp | RegionFill] = [_net(aperture_index=10, aperture_state=ApertureState.Flash)]
     aps: dict[int, Aperture] = {10: CircleAperture(diameter=0.05, hole_diameter=0.02)}
     cr = compile_render(_image_with_nets(nets, aps))
     groups = cr.layers[0].groups
@@ -176,7 +179,7 @@ def test_compile_holed_flash() -> None:
 
 def test_compile_macro_flash() -> None:
     """Flash on a MacroAperture -> MacroFlash."""
-    nets = [_net(aperture_index=10, aperture_state=ApertureState.Flash)]
+    nets: list[DrawOp | RegionFill] = [_net(aperture_index=10, aperture_state=ApertureState.Flash)]
     aps: dict[int, Aperture] = {10: MacroAperture()}
     cr = compile_render(_image_with_nets(nets, aps))
     groups = cr.layers[0].groups
@@ -186,7 +189,7 @@ def test_compile_macro_flash() -> None:
 
 def test_compile_off_state_flushes_stroke() -> None:
     """D02 move between strokes produces two separate StrokeBatch groups."""
-    nets = [
+    nets: list[DrawOp | RegionFill] = [
         _net(aperture_index=10, aperture_state=ApertureState.On, stop_x=0.1),
         _net(aperture_index=10, aperture_state=ApertureState.Off, stop_x=0.2),
         _net(aperture_index=10, aperture_state=ApertureState.On, stop_x=0.3),

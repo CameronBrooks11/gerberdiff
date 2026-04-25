@@ -21,6 +21,7 @@ from gerberdelta.types import (
     ParsedImage,
     Polarity,
     Region,
+    RegionFill,
     StepAndRepeat,
     UnitType,
 )
@@ -82,6 +83,26 @@ def test_parsed_image_empty() -> None:
     assert not pi.draw_ops
     assert not pi.apertures
     assert not pi.bounding_box.is_valid
+
+
+def test_region_fill_construction() -> None:
+    """RegionFill can be constructed and holds its segments."""
+    seg = DrawOp(
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=1.0,
+        stop_y=0.0,
+        aperture_index=10,
+        aperture_state=ApertureState.On,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    rf = RegionFill(layer_index=0, net_state_index=0, segments=[seg])
+    assert rf.layer_index == 0
+    assert rf.net_state_index == 0
+    assert len(rf.segments) == 1
+    assert rf.segments[0] is seg
 
 
 def test_region_bounding_box_field_name() -> None:

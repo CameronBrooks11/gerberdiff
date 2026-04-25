@@ -55,14 +55,64 @@ def test_no_format_statement_adds_info_diagnostic() -> None:
 
 
 def test_region_fill_markers_in_net_list() -> None:
-    # G36/G37 should produce RegionStart/RegionEnd sentinel nets
+    # G36/G37 should produce a single RegionFill object, not sentinel DrawOps
     content = "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%G36*X10000Y10000D01*X20000D01*G37*M02*"
     img = parse_gerber(content)
-    from gerberdelta.types import InterpolationMode
+    from gerberdelta.types import DrawOp, RegionFill
 
-    modes = [n.interpolation for n in img.draw_ops]
-    assert InterpolationMode.RegionStart in modes
-    assert InterpolationMode.RegionEnd in modes
+    region_fills = [op for op in img.draw_ops if isinstance(op, RegionFill)]
+    assert len(region_fills) == 1, "expected exactly one RegionFill in draw_ops"
+    rf = region_fills[0]
+    assert len(rf.segments) == 2, "expected two interior segment DrawOps"
+    assert all(isinstance(s, DrawOp) for s in rf.segments)
+    # no plain DrawOp should be the old sentinel (enum members no longer exist)
+    plain_ops = [op for op in img.draw_ops if isinstance(op, DrawOp)]
+    assert len(plain_ops) == 0, "expected no DrawOps outside the RegionFill"
+
+
+def test_region_fill_bounding_box_expanded() -> None:
+    # Interior segment coordinates must expand the image bounding box
+    content = (
+        "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%"
+        "G36*D02*X0Y0D01*X100000Y100000D01*G37*M02*"
+    )
+    img = parse_gerber(content)
+    bb = img.bounding_box
+    assert bb.is_valid
+    assert bb.max_x > 0.0
+    assert bb.max_y > 0.0
+
+
+def test_region_fill_unclosed_at_eof_warns() -> None:
+    # G36 without G37 before M02 should emit a Warning diagnostic
+    content = "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%G36*X10000Y10000D01*M02*"
+    img = parse_gerber(content)
+    warnings = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Warning]
+    assert any("region" in d.message.lower() for d in warnings)
+
+
+def test_region_fill_renders_pixel() -> None:
+    # End-to-end: a filled square region must produce at least one opaque pixel
+    content = (
+        "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%"
+        "G36*"
+        "X0Y0D02*"
+        "X100000Y0D01*"
+        "X100000Y100000D01*"
+        "X0Y100000D01*"
+        "X0Y0D01*"
+        "G37*"
+        "M02*"
+    )
+    from gerberdelta.parse.gerber_state import parse_gerber as _pg
+    from gerberdelta.render.renderer import render_to_numpy
+    from gerberdelta.render.viewport import compute_viewport
+
+    img = _pg(content)
+    vp = compute_viewport(img.bounding_box, width=64, height=64)
+    arr = render_to_numpy(img, vp)
+    # alpha channel > 0 means at least one drawn pixel
+    assert arr[..., 3].max() > 0
 
 
 def test_aperture_select_does_not_emit_net() -> None:
