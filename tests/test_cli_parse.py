@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from gerberdelta.cli import cli
 
-_FIXTURES = Path("tests/fixtures/gerbers-before")
+_FIXTURES = Path(__file__).parent / "fixtures" / "gerbers-before"
 
 
 def test_parse_exits_0_on_valid_gerber() -> None:

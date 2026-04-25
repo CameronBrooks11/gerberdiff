@@ -1,4 +1,4 @@
-__version__ = "0.19.0"
+__version__ = "0.20.0"
 
 from gerberdelta.diff.diff_engine import compute_diff
 from gerberdelta.parse.excellon_parser import parse_excellon

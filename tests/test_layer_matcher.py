@@ -12,8 +12,8 @@ from gerberdelta.diff.layer_matcher import (
 )
 from gerberdelta.types import LayerStatus, LayerType
 
-_FIXTURES_BEFORE = Path("tests/fixtures/gerbers-before")
-_FIXTURES_AFTER = Path("tests/fixtures/gerbers-after")
+_FIXTURES_BEFORE = Path(__file__).parent / "fixtures" / "gerbers-before"
+_FIXTURES_AFTER = Path(__file__).parent / "fixtures" / "gerbers-after"
 
 
 # ---------------------------------------------------------------------------

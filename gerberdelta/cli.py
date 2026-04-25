@@ -8,9 +8,9 @@ from pathlib import Path
 import click
 
 from gerberdelta import __version__
+from gerberdelta.diff.layer_matcher import _EXCELLON_SUFFIXES
 from gerberdelta.types import DiagnosticSeverity, LayerStatus
 
-_EXCELLON_SUFFIXES = frozenset({".drl", ".exc", ".xln", ".ncd"})
 _MEMORY_WARN_PIXELS = 16_777_216  # 4096^2
 
 
@@ -221,7 +221,12 @@ def render_cmd(
     "--align-offset",
     default="0,0",
     show_default=True,
-    help="Translate image B by X,Y inches before diffing (e.g. '0.5,0').",
+    help=(
+        "Shift image B by DX,DY inches before diffing. "
+        "Positive DX shifts right; positive DY shifts downward "
+        "(screen convention, i.e. negative Gerber Y). "
+        "Example: '--align-offset 0.5,0' compensates for B being 0.5 in to the right of A."
+    ),
 )
 @click.option("--fail-on-diff", is_flag=True, help="Exit with code 1 if any changes are detected.")
 @click.option("-q", "--quiet", is_flag=True, help="Suppress all output except errors.")

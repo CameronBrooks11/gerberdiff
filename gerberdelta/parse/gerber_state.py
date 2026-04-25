@@ -160,6 +160,9 @@ class _GerberParser:
     def _warn(self, msg: str, line: int | None = None) -> None:
         self._diagnostics.append(Diagnostic(DiagnosticSeverity.Warning, msg, line))
 
+    def _error(self, msg: str, line: int | None = None) -> None:
+        self._diagnostics.append(Diagnostic(DiagnosticSeverity.Error, msg, line))
+
     def _info(self, msg: str, line: int | None = None) -> None:
         self._diagnostics.append(Diagnostic(DiagnosticSeverity.Info, msg, line))
 
@@ -206,8 +209,8 @@ class _GerberParser:
         try:
             mdef = parse_macro_body(self._macro_name, body)
             self._macro_map[self._macro_name] = mdef
-        except Exception as exc:  # pragma: no cover
-            self._warn(f"Macro parse failed for {self._macro_name!r}: {exc}")
+        except Exception as exc:
+            self._error(f"Macro parse failed for {self._macro_name!r}: {exc}")
         self._macro_name = None
         self._macro_lines = []
 

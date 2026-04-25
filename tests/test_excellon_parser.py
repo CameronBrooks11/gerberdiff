@@ -7,7 +7,7 @@ import pytest
 from gerberdelta.parse.excellon_parser import _apply_format, _FormatSpec, parse_excellon
 from gerberdelta.types import ApertureState, ApertureType, DiagnosticSeverity, UnitType
 
-_FIXTURES = Path("tests/fixtures/gerbers-before")
+_FIXTURES = Path(__file__).parent / "fixtures" / "gerbers-before"
 _FIXTURES_ROOT = Path(__file__).parent / "fixtures"
 
 

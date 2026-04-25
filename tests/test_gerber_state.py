@@ -7,7 +7,7 @@ import pytest
 from gerberdelta.parse.gerber_state import parse_gerber
 from gerberdelta.types import ApertureType, DiagnosticSeverity, Polarity
 
-_FIXTURES = Path("tests/fixtures/gerbers-before")
+_FIXTURES = Path(__file__).parent / "fixtures" / "gerbers-before"
 
 
 def test_parse_minimal() -> None:
@@ -106,3 +106,12 @@ def test_no_crash_on_fixture_files() -> None:
         assert img is not None
         errors = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Error]
         assert errors == [], f"{f.name}: {errors}"
+
+
+def test_malformed_macro_records_error_diagnostic() -> None:
+    """A macro with a non-integer variable index produces a DiagnosticSeverity.Error."""
+    gerber = "%AMbadmacro*$notanint=1*%\nM02*\n"
+    img = parse_gerber(gerber)
+    errors = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Error]
+    assert len(errors) == 1
+    assert "badmacro" in errors[0].message

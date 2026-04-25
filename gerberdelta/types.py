@@ -169,16 +169,13 @@ class CoordState:
     """Snapshot of global image-level state at the time a net was emitted.
 
     ``unit`` is stored for diagnostic/display purposes only.  All coordinates
-    in Net are already normalised to inches by convert_coordinate at parse time.
+    in DrawOp are already normalised to inches by convert_coordinate at parse
+    time.  The deprecated RS-274X image/axis commands (%MI%, %AS%, %OF%,
+    %SF%) are silently ignored by the parser; their fields have been removed
+    from this type.
     """
 
     unit: UnitType = UnitType.Inch
-    mirror_state: MirrorState = MirrorState.None_
-    axis_select: str = "normal"  # "normal" | "swapAB"
-    offset_a: float = 0.0
-    offset_b: float = 0.0
-    scale_a: float = 1.0
-    scale_b: float = 1.0
 
 
 @dataclass

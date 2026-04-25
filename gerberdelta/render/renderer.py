@@ -88,7 +88,7 @@ def render_to_surface(
     ctx.translate(viewport.pan_x, viewport.pan_y)
     ctx.scale(viewport.zoom, -viewport.zoom)
     if coordinate_offset is not None:
-        ctx.translate(coordinate_offset[0], coordinate_offset[1])
+        ctx.translate(coordinate_offset[0], -coordinate_offset[1])
     # Global draw style.
     ctx.set_source_rgba(*draw_color)
     ctx.set_line_join(cairo.LINE_JOIN_ROUND)

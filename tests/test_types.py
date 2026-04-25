@@ -67,11 +67,6 @@ def test_layer_state_defaults() -> None:
 def test_net_state_defaults() -> None:
     ns = CoordState()
     assert ns.unit is UnitType.Inch
-    assert ns.mirror_state is MirrorState.None_
-    assert ns.scale_a == pytest.approx(1.0)
-    assert ns.scale_b == pytest.approx(1.0)
-    assert ns.offset_a == pytest.approx(0.0)
-    assert ns.offset_b == pytest.approx(0.0)
 
 
 def test_parsed_image_empty() -> None:

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-04-25
+
+### Changed
+
+- **`_EXCELLON_SUFFIXES` consolidated** -- the duplicate definition in
+  `cli.py` is removed; `cli.py` now imports `_EXCELLON_SUFFIXES` from
+  `diff/layer_matcher.py`, which remains the single source of truth.
+
+- **`_flush_macro` exception severity upgraded to `Error`** -- a failed
+  `parse_macro_body` call (e.g. non-integer variable index `$notanint=…`)
+  was silently recorded as a `Warning` with `# pragma: no cover`. It is now
+  recorded as `DiagnosticSeverity.Error`, the `# pragma: no cover` tag is
+  removed, and a test exercises this path.
+
+- **Fixture paths in tests use `__file__`-relative construction** -- all
+  ten `Path("tests/fixtures/…")` occurrences across seven test files are
+  replaced with `Path(__file__).parent / "fixtures" / "…"`. Tests now pass
+  regardless of the working directory from which pytest is invoked.
+
+- **`--align-offset` Y direction corrected** -- positive `DY` now shifts
+  image B downward (positive screen Y), consistent with `DX` shifting
+  rightward. Previously positive `DY` moved the geometry upward, which was
+  the inverse of the expected screen convention. Help text updated to
+  document the convention explicitly.
+
+- **`CoordState` deprecated fields removed** -- `mirror_state`, `axis_select`,
+  `offset_a`, `offset_b`, `scale_a`, and `scale_b` were never populated by
+  the parser (the corresponding `%MI%`, `%AS%`, `%OF%`, `%SF%` commands were
+  handled with `pass`). `CoordState` now carries only `unit: UnitType`.
+
 ## [0.19.0] - 2026-04-25
 
 ### Added

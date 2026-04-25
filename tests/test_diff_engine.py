@@ -17,8 +17,8 @@ from gerberdelta.diff.diff_engine import (
 from gerberdelta.parse.gerber_state import parse_gerber
 from gerberdelta.types import BoundingBox, LayerState, ParsedImage, Region
 
-_FIXTURES_BEFORE = Path("tests/fixtures/gerbers-before")
-_FIXTURES_AFTER = Path("tests/fixtures/gerbers-after")
+_FIXTURES_BEFORE = Path(__file__).parent / "fixtures" / "gerbers-before"
+_FIXTURES_AFTER = Path(__file__).parent / "fixtures" / "gerbers-after"
 _FCU_BEFORE = _FIXTURES_BEFORE / "A64-OlinuXino-F.Cu.gbr"
 _FCU_AFTER = _FIXTURES_AFTER / "A64-OlinuXino-F.Cu.gbr"
 
