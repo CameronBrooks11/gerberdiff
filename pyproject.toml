@@ -1,0 +1,90 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gerberdelta"
+version = "0.1.0"
+description = "Geometry-aware Gerber/Excellon diff tool"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "click>=8",
+    "numpy>=1.24",
+    "cairocffi>=1.6",
+]
+
+[project.optional-dependencies]
+# Installed by end users who want prettier terminal output
+rich = ["rich>=13"]
+# Optional fast CCL backend — strongly recommended for any image larger than ~512×512
+fast = ["scipy>=1.10"]
+
+[dependency-groups]
+# Dev tools — NOT distributed with the package; managed by uv only
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+gerberdelta = "gerberdelta.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gerberdelta"]
+
+# ── pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# ── ruff ─────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length    = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long — enforced by formatter, not linter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gerberdelta"]
+
+# ── mypy ─────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version          = "3.11"
+strict                  = true
+warn_return_any         = true
+warn_unused_configs     = true
+warn_unused_ignores     = true
+extra_checks            = true
+
+[[tool.mypy.overrides]]
+# cairocffi and scipy ship no stub packages; ignore missing imports project-wide
+module = ["cairocffi.*", "scipy.*"]
+ignore_missing_imports = true
+
+# ── coverage ─────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["gerberdelta"]
+omit   = ["gerberdelta/cli.py"]   # CLI tested via integration; exclude from line-coverage gate
+
+[tool.coverage.report]
+fail_under    = 60    # conservative floor; raise 5 points per milestone
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
