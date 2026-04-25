@@ -66,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`SingleLayerDiff` no longer stores raw pixel arrays** -- `arr_a`, `arr_b`,
   and `xor` (three `~48 MB` numpy arrays at 2048²) have been removed from the
   dataclass. Callers that need a PNG overlay pass an `overlay_callback:
-  Callable[[ndarray, ndarray, ndarray], None]` to `compute_diff()`; the callback
+Callable[[ndarray, ndarray, ndarray], None]` to `compute_diff()`; the callback
   is invoked before the arrays are released. The diff CLI uses this callback to
   write the overlay PNG without ever holding all three arrays simultaneously.
 
@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`_GerberParser._block_stack` uses `_BlockFrame` dataclass** -- replaces the
   unnamed 7-tuple `(d_code, block_ap, saved_nets, saved_layers, saved_apertures,
-  saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
+saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
   field access is explicit and mypy-checked.
 
 ### Fixed
@@ -178,7 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ParsedImage.nets` → `draw_ops`
   - `ParsedImage.net_states` → `coord_states`
   - `BlockAperture.nets` → `draw_ops`
-  All public and internal references updated; import order re-sorted (ruff I001).
+    All public and internal references updated; import order re-sorted (ruff I001).
 
 ## [0.14.0] - 2026-04-25
 

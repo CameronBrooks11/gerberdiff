@@ -38,20 +38,20 @@ Gerber/Excellon files
 
 ### `gerberdelta/parse/`
 
-| File                 | Purpose                                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------------------- |
-| `tokenizer.py`       | Splits a Gerber file into a flat stream of `Token` objects (param blocks, data blocks, D/G/M codes)   |
-| `gerber_parser.py`   | Utility functions: `parse_format_statement`, `convert_coordinate`, `parse_aperture_definition` -- called directly by `gerber_state.py` |
+| File                 | Purpose                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tokenizer.py`       | Splits a Gerber file into a flat stream of `Token` objects (param blocks, data blocks, D/G/M codes)                                         |
+| `gerber_parser.py`   | Utility functions: `parse_format_statement`, `convert_coordinate`, `parse_aperture_definition` -- called directly by `gerber_state.py`      |
 | `gerber_state.py`    | Full RS-274X state machine; consumes the token stream from `tokenize_gerber` and emits `DrawOp` / `RegionFill` objects into a `ParsedImage` |
-| `macro_parser.py`    | Parses and evaluates aperture macro expressions; produces `MacroDef` objects used by the renderer     |
-| `arc_math.py`        | Converts Gerber centre-offset arc representation to `ArcSegment` (centre + radius + start/end angles) |
-| `excellon_parser.py` | Parses Excellon drill files (header + body) into a `ParsedImage` using the same IR                    |
+| `macro_parser.py`    | Parses and evaluates aperture macro expressions; produces `MacroDef` objects used by the renderer                                           |
+| `arc_math.py`        | Converts Gerber centre-offset arc representation to `ArcSegment` (centre + radius + start/end angles)                                       |
+| `excellon_parser.py` | Parses Excellon drill files (header + body) into a `ParsedImage` using the same IR                                                          |
 
 ### `gerberdelta/render/`
 
 | File                 | Purpose                                                                                                     |
 | -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `viewport.py`        | Fits a `BoundingBox` into pixel canvas dimensions -> `Viewport` (pan/zoom + Y-flip)                          |
+| `viewport.py`        | Fits a `BoundingBox` into pixel canvas dimensions -> `Viewport` (pan/zoom + Y-flip)                         |
 | `compiled_render.py` | Translates a `ParsedImage` IR into a flat list of `DrawOp` objects                                          |
 | `draw_ops.py`        | Low-level cairocffi primitives for each draw operation (stroke, fill, flash, arc)                           |
 | `macro_renderer.py`  | Evaluates `MacroDef` primitives (circle, line, outline, polygon, thermal, moire, custom) to cairocffi paths |

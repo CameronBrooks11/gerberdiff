@@ -32,7 +32,7 @@ uv run ruff format gerberdelta/ tests/
 uv run mypy gerberdelta/ tests/
 ```
 
-All three must pass with no errors before a PR will be merged.  CI enforces this on every push.
+All three must pass with no errors before a PR will be merged. CI enforces this on every push.
 
 ## Commit messages
 
@@ -62,7 +62,7 @@ many fonts and meaningless to grep.
 **Banned characters and their ASCII replacements:**
 
 | Character         | Codepoint | Use instead |
-| ----------------- | --------- | ----------- |
+| ----------------- | --------- | ----------- | ------ |
 | em dash           | U+2014    | `--`        |
 | en dash           | U+2013    | `-`         |
 | ellipsis          | U+2026    | `...`       |
@@ -76,7 +76,7 @@ many fonts and meaningless to grep.
 | plus-minus        | U+00B1    | `+/-`       |
 | degree            | U+00B0    | `deg`       |
 | superscript 2     | U+00B2    | `^2`        |
-| box-drawing chars | U+2500+   | `-`, `|`, `+` |
+| box-drawing chars | U+2500+   | `-`, `      | `, `+` |
 
 To check a branch before committing:
 

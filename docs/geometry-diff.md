@@ -43,17 +43,17 @@ the geometry layer without modification.
 Every `DrawOp` represents an intent; the geometry diff needs the actual shape — a
 polygon. Required expansions:
 
-| DrawOp | Expansion |
-|--------|-----------|
-| Circle flash | Circle → regular polygon approximation |
-| Rectangle flash | Axis-aligned rectangle |
-| Obround flash | Rectangle + two semicircles |
-| Polygon flash | Regular N-gon |
-| Macro flash | Evaluated primitive set → union of polygons |
-| Block flash | Recursive expansion of contained ops |
-| D01 stroke (any aperture) | Minkowski sum of aperture shape with path |
-| Arc stroke | Swept shape along arc; use `ArcSegment` geometry |
-| Region fill (G36/G37) | Already a polygon; direct use (prerequisite: item 5.6) |
+| DrawOp                    | Expansion                                              |
+| ------------------------- | ------------------------------------------------------ |
+| Circle flash              | Circle → regular polygon approximation                 |
+| Rectangle flash           | Axis-aligned rectangle                                 |
+| Obround flash             | Rectangle + two semicircles                            |
+| Polygon flash             | Regular N-gon                                          |
+| Macro flash               | Evaluated primitive set → union of polygons            |
+| Block flash               | Recursive expansion of contained ops                   |
+| D01 stroke (any aperture) | Minkowski sum of aperture shape with path              |
+| Arc stroke                | Swept shape along arc; use `ArcSegment` geometry       |
+| Region fill (G36/G37)     | Already a polygon; direct use (prerequisite: item 5.6) |
 
 **Recommended library:** `shapely` (LGPL-2.1, compatible with Apache-2.0). It provides
 polygon construction, `buffer()` for Minkowski approximation, boolean operations, and
