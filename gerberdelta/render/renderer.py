@@ -6,7 +6,7 @@ Usage
 >>> from gerberdelta.render.viewport import compute_viewport
 >>> vp = compute_viewport(parsed.bounding_box, width=1024, height=1024)
 >>> surface = render_to_surface(parsed, vp)
->>> arr = render_to_numpy(parsed, vp)   # shape (H, W, 4) uint8 ARGB
+>>> arr = render_to_numpy(parsed, vp)   # shape (H, W, 4) uint8 BGRA
 
 Polarity
 --------

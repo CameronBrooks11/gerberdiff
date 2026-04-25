@@ -501,7 +501,7 @@ class _GerberParser:
             pass  # File attribute -- informational, ignored
 
         elif prefix in ("IA", "AS", "MI", "OF", "SF"):
-            pass  # Deprecated image/axis attributes -- safely ignored
+            self._info(f"Deprecated RS-274X command {prefix!r} ignored; transforms not applied")
 
         else:
             self._warn(f"Unknown extended command prefix {prefix!r}", line)

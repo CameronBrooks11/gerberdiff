@@ -125,6 +125,21 @@ diff = gerberdelta.compute_diff(before, after, width=1024, height=1024)
 print(f"{diff.changed_pixel_count} changed pixels across {len(diff.regions)} regions")
 ```
 
+## Known limitations
+
+- **Excellon rout mode (G01/G02/G03):** only drill hits (tool flashes) are rendered.
+  Routing paths produce a `Warning` diagnostic but no geometry.  Boards with routed
+  slots or edge routing will render incompletely.
+
+- **Deprecated RS-274X image-level commands:** `%MI%` (mirror), `%OF%` (offset),
+  `%SF%` (scale), `%AS%` (axis select) are ignored.  Files from older CAD tools
+  (Altium, OrCAD) that rely on these commands will render without the corresponding
+  transforms applied.  An `Info` diagnostic is emitted for each ignored command.
+
+- **Rectangle/obround aperture strokes:** rendered using `max(width, height)` as the
+  stroke width, which is an approximation.  A fully correct Minkowski-sum stroke
+  would require vector geometry work (see `docs/GEOMETRY_DIFF_NOT_IMPLEMENTED.md`).
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, test, and lint commands.

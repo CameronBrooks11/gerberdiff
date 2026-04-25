@@ -51,9 +51,9 @@ _GERBER_SUFFIXES = frozenset(
     }
 )
 
-_EXCELLON_SUFFIXES = frozenset({".drl", ".exc", ".xln", ".ncd"})
+EXCELLON_SUFFIXES = frozenset({".drl", ".exc", ".xln", ".ncd"})
 
-_LAYER_SUFFIXES = _GERBER_SUFFIXES | _EXCELLON_SUFFIXES
+_LAYER_SUFFIXES = _GERBER_SUFFIXES | EXCELLON_SUFFIXES
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ def _classify(stem: str, path: Path) -> LayerType:
     if ext in (".gtp", ".gbp"):
         return LayerType.FPaste if ext == ".gtp" else LayerType.BPaste
     # Drill files with no keyword match
-    if ext in _EXCELLON_SUFFIXES:
+    if ext in EXCELLON_SUFFIXES:
         return LayerType.Drill
     return LayerType.Unknown
 

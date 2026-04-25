@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 
 from gerberdelta import __version__
-from gerberdelta.diff.layer_matcher import _EXCELLON_SUFFIXES
+from gerberdelta.diff.layer_matcher import EXCELLON_SUFFIXES
 from gerberdelta.types import DiagnosticSeverity, LayerStatus
 
 _MEMORY_WARN_PIXELS = 16_777_216  # 4096^2
@@ -17,7 +17,7 @@ _MEMORY_WARN_PIXELS = 16_777_216  # 4096^2
 @click.group()
 @click.version_option(__version__, prog_name="gerberdelta")
 def cli() -> None:
-    """Geometry-aware Gerber/Excellon diff tool."""
+    """Visual raster diff tool for Gerber/Excellon PCB design files."""
 
 
 @cli.command("parse")
@@ -36,7 +36,7 @@ def parse_cmd(file: Path, dump_ir: bool, quiet: bool, verbose: bool) -> None:
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)
 
-    if file.suffix.lower() in _EXCELLON_SUFFIXES:
+    if file.suffix.lower() in EXCELLON_SUFFIXES:
         img = parse_excellon(content, source_path=file)
     else:
         img = parse_gerber(content, source_path=file)
@@ -138,7 +138,7 @@ def render_cmd(
         click.echo(f"error: {exc}", err=True)
         sys.exit(1)
 
-    if file.suffix.lower() in _EXCELLON_SUFFIXES:
+    if file.suffix.lower() in EXCELLON_SUFFIXES:
         img = parse_excellon(content, source_path=file)
     else:
         img = parse_gerber(content, source_path=file)
@@ -305,7 +305,7 @@ def diff_cmd(
             except OSError as exc:
                 click.echo(f"error: {exc}", err=True)
                 sys.exit(1)
-            if src_path.suffix.lower() in _EXCELLON_SUFFIXES:
+            if src_path.suffix.lower() in EXCELLON_SUFFIXES:
                 img = parse_excellon(content, source_path=src_path)
             else:
                 img = parse_gerber(content, source_path=src_path)
@@ -337,7 +337,7 @@ def diff_cmd(
             except OSError as exc:
                 click.echo(f"error: {exc}", err=True)
                 sys.exit(1)
-            if path.suffix.lower() in _EXCELLON_SUFFIXES:
+            if path.suffix.lower() in EXCELLON_SUFFIXES:
                 return parse_excellon(content, source_path=path)
             return parse_gerber(content, source_path=path)
 

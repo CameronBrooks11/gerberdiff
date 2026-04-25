@@ -2,7 +2,7 @@
 
 ## Overview
 
-gerberdelta is a geometry-aware diff tool for Gerber and Excellon PCB design files.
+gerberdelta is a visual raster diff tool for Gerber and Excellon PCB design files.
 It turns the question "what changed between two board revisions?" into visual overlays
 and machine-readable reports.
 
@@ -41,8 +41,8 @@ Gerber/Excellon files
 | File                 | Purpose                                                                                               |
 | -------------------- | ----------------------------------------------------------------------------------------------------- |
 | `tokenizer.py`       | Splits a Gerber file into a flat stream of `Token` objects (param blocks, data blocks, D/G/M codes)   |
-| `gerber_parser.py`   | Stateless pass over the token stream -> `RawCommand` list                                              |
-| `gerber_state.py`    | Full RS-274X state machine; consumes `RawCommand` stream and emits `Net` objects into a `ParsedImage` |
+| `gerber_parser.py`   | Utility functions: `parse_format_statement`, `convert_coordinate`, `parse_aperture_definition` -- called directly by `gerber_state.py` |
+| `gerber_state.py`    | Full RS-274X state machine; consumes the token stream from `tokenize_gerber` and emits `DrawOp` / `RegionFill` objects into a `ParsedImage` |
 | `macro_parser.py`    | Parses and evaluates aperture macro expressions; produces `MacroDef` objects used by the renderer     |
 | `arc_math.py`        | Converts Gerber centre-offset arc representation to `ArcSegment` (centre + radius + start/end angles) |
 | `excellon_parser.py` | Parses Excellon drill files (header + body) into a `ParsedImage` using the same IR                    |
@@ -89,20 +89,20 @@ converts from whatever unit the file uses (inches or mm) before emitting nets.
 
 ```
 ParsedImage
-+-- nets: list[Net]                  <- one entry per drawing operation
-+-- apertures: dict[int, Aperture]   <- keyed by D-code number
-+-- layers: list[LayerState]         <- polarity, rotation, mirror, scale, S&R
-+-- net_states: list[NetState]       <- axis select, offsets, scale
-+-- bounding_box: BoundingBox        <- axis-aligned hull in inches
++-- draw_ops: list[DrawOp | RegionFill]  <- one entry per drawing operation
++-- apertures: dict[int, Aperture]       <- keyed by D-code number
++-- layers: list[LayerState]             <- polarity, rotation, mirror, scale, S&R
++-- coord_states: list[CoordState]       <- coordinate format, unit, offsets
++-- bounding_box: BoundingBox            <- axis-aligned hull in inches
 +-- diagnostics: list[Diagnostic]
 ```
 
 ```
-Net
+DrawOp
 +-- start_x / start_y / stop_x / stop_y  (inches)
 +-- aperture_index, aperture_state        (Off / On / Flash)
-+-- interpolation                         (Linear / CW / CCW / RegionStart / RegionEnd)
-+-- layer_index, net_state_index
++-- interpolation                         (Linear / CW / CCW)
++-- layer_index, coord_state_index
 +-- arc_segment: ArcSegment | None        (fully resolved, angles in degrees)
 ```
 
