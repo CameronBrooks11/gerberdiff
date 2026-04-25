@@ -354,3 +354,80 @@ def test_aperture_malformed_definition_emits_warning_not_error() -> None:
     warnings = [d for d in img.diagnostics if d.severity == DiagnosticSeverity.Warning]
     assert errors == [], f"unexpected errors: {errors}"
     assert any("aperture" in d.message.lower() for d in warnings)
+
+
+# ---------------------------------------------------------------------------
+# P7-1: Incremental coordinate mode
+# ---------------------------------------------------------------------------
+
+
+def test_incremental_mode_accumulates_coordinates() -> None:
+    """G91 switches to incremental mode; each coordinate adds to the previous."""
+    # Two successive D01 moves of 0.1 inch (10000 units at X2.5Y2.5 format).
+    # In incremental mode the second move's stop position should be 0.2 inch.
+    gerber = (
+        "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%"
+        "D10*"
+        "G01*G91*"          # linear, incremental
+        "X10000Y00000D01*"  # move +0.1 inch from (0,0) → stop at (0.1, 0.0)
+        "X10000Y00000D01*"  # move +0.1 inch from (0.1,0) → stop at (0.2, 0.0)
+        "M02*"
+    )
+    img = parse_gerber(gerber)
+    from gerberdelta.types import DrawOp
+    ops = [op for op in img.draw_ops if isinstance(op, DrawOp)]
+    assert len(ops) >= 2, f"expected at least 2 DrawOps, got {len(ops)}"
+    # Second net must end further right than the first
+    assert ops[1].stop_x > ops[0].stop_x, (
+        f"incremental: second stop_x ({ops[1].stop_x}) should exceed first ({ops[0].stop_x})"
+    )
+    assert abs(ops[1].stop_x - 0.2) < 1e-6, (
+        f"expected stop_x≈0.2 inch, got {ops[1].stop_x}"
+    )
+
+
+def test_incremental_mode_returns_to_absolute_on_G90() -> None:
+    """After G90, coordinates are absolute again (not accumulated)."""
+    gerber = (
+        "%FSLAX25Y25*%%MOIN*%%ADD10C,0.001*%"
+        "D10*"
+        "G91*"              # incremental
+        "X10000Y00000D01*"  # incremental move +0.1 → stop at (0.1, 0)
+        "G90*"              # back to absolute
+        "X10000Y00000D01*"  # absolute move to (0.1, 0) → stop_x = 0.1 (not 0.2)
+        "M02*"
+    )
+    img = parse_gerber(gerber)
+    from gerberdelta.types import DrawOp
+    ops = [op for op in img.draw_ops if isinstance(op, DrawOp)]
+    assert len(ops) >= 2
+    # After G90, the second move is absolute: stop at exactly X=0.1 (same as first)
+    assert abs(ops[1].stop_x - 0.1) < 1e-6, (
+        f"after G90 expected stop_x≈0.1 (absolute), got {ops[1].stop_x}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# P7-2: Step-and-repeat parsing
+# ---------------------------------------------------------------------------
+
+
+def test_sr_parse_records_step_and_repeat_on_layer() -> None:
+    """%%SRX3Y2I1.0J0.5*%% sets step-and-repeat on the current layer."""
+    gerber = (
+        "%FSLAX25Y25*%%MOIN*%"
+        "%SRX3Y2I1.0J0.5*%"
+        "%ADD10C,0.001*%"
+        "X0Y0D03*"
+        "%SR*%"
+        "M02*"
+    )
+    img = parse_gerber(gerber)
+    # The SR block produces a layer; find one with x>1.
+    sr_layers = [la for la in img.layers if la.step_and_repeat.x > 1]
+    assert len(sr_layers) >= 1, "expected at least one layer with SR x>1"
+    sr = sr_layers[0].step_and_repeat
+    assert sr.x == 3
+    assert sr.y == 2
+    assert abs(sr.dist_x - 1.0) < 1e-9
+    assert abs(sr.dist_y - 0.5) < 1e-9

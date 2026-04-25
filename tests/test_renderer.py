@@ -407,3 +407,147 @@ def test_block_flash_depth_guard_no_recursion_error() -> None:
     vp = Viewport(width=50, height=50, pan_x=25.0, pan_y=25.0, zoom=200.0)
     arr = render_to_numpy(img, vp)  # must not raise
     assert arr.shape == (50, 50, 4)
+
+
+# ---------------------------------------------------------------------------
+# P7-2: Step-and-repeat rendering
+# ---------------------------------------------------------------------------
+
+
+def test_sr_render_produces_multiple_instances() -> None:
+    """An SR X2 layer must render the flash geometry twice at different positions."""
+    ap_code = 10
+    net = DrawOp(
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    bb = BoundingBox()
+    bb.expand(0.0, 0.0, 0.02)
+    bb.expand(0.5, 0.0, 0.02)  # second instance at x=0.5
+    # SR: 2 steps in X, 1 step in Y, 0.5 inch apart.
+    layer = LayerState(step_and_repeat=StepAndRepeat(x=2, y=1, dist_x=0.5, dist_y=0.0))
+    img = ParsedImage(
+        draw_ops=[net],
+        apertures={ap_code: CircleAperture(diameter=0.04)},
+        layers=[layer],
+        coord_states=[],
+        bounding_box=bb,
+        diagnostics=[],
+    )
+    # Viewport covers both instances: 1 inch wide at 100 px/inch → 100 px
+    vp = Viewport(width=100, height=50, pan_x=50.0, pan_y=25.0, zoom=100.0)
+    arr = render_to_numpy(img, vp)
+    alpha = arr[:, :, 3]
+    # Find columns with any lit pixels
+    lit_cols = np.where(np.any(alpha > 0, axis=0))[0]
+    assert len(lit_cols) > 0, "No pixels rendered"
+    col_min, col_max = int(lit_cols.min()), int(lit_cols.max())
+    # Two instances separated by 50 px (0.5 inch × 100 px/inch) — range must span > 20 px
+    assert col_max - col_min > 20, (
+        f"SR X2 instances too close together: col range [{col_min}, {col_max}]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# P7-3: Layer scale transform
+# ---------------------------------------------------------------------------
+
+
+def test_ls_scale_changes_pixel_count() -> None:
+    """LayerState(scale=2.0) renders a larger flash than scale=1.0."""
+    ap_code = 10
+    # Shared net: flash at origin
+    net = DrawOp(
+        start_x=0.0,
+        start_y=0.0,
+        stop_x=0.0,
+        stop_y=0.0,
+        aperture_index=ap_code,
+        aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear,
+        layer_index=0,
+        net_state_index=0,
+    )
+    bb = BoundingBox()
+    bb.expand(0.0, 0.0, 0.1)
+    apertures = {ap_code: CircleAperture(diameter=0.1)}
+    vp = Viewport(width=64, height=64, pan_x=32.0, pan_y=32.0, zoom=200.0)
+
+    def _render_with_scale(s: float) -> int:
+        img = ParsedImage(
+            draw_ops=[net],
+            apertures=apertures,
+            layers=[LayerState(scale=s)],
+            coord_states=[],
+            bounding_box=bb,
+            diagnostics=[],
+        )
+        arr = render_to_numpy(img, vp)
+        return int(np.sum(arr[:, :, 3] > 0))
+
+    pixels_1x = _render_with_scale(1.0)
+    pixels_2x = _render_with_scale(2.0)
+    assert pixels_1x > 0, "scale=1.0 produced no pixels"
+    assert pixels_2x > pixels_1x, (
+        f"scale=2.0 ({pixels_2x} px) should produce more pixels than scale=1.0 ({pixels_1x} px)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# P7-4: Clear polarity erases geometry
+# ---------------------------------------------------------------------------
+
+
+def test_clear_polarity_erases_geometry() -> None:
+    """A clear-polarity flash at the same location as a dark flash erases pixels."""
+    ap_code = 10
+    # Flash at origin on layer 0 (dark) and layer 1 (clear).
+    net_dark = DrawOp(
+        start_x=0.0, start_y=0.0, stop_x=0.0, stop_y=0.0,
+        aperture_index=ap_code, aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear, layer_index=0, net_state_index=0,
+    )
+    net_clear = DrawOp(
+        start_x=0.0, start_y=0.0, stop_x=0.0, stop_y=0.0,
+        aperture_index=ap_code, aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear, layer_index=1, net_state_index=0,
+    )
+    bb = BoundingBox()
+    bb.expand(0.0, 0.0, 0.1)
+    apertures = {ap_code: CircleAperture(diameter=0.1)}
+    vp = Viewport(width=64, height=64, pan_x=32.0, pan_y=32.0, zoom=300.0)
+
+    # Dark only: has lit pixels
+    img_dark = ParsedImage(
+        draw_ops=[net_dark],
+        apertures=apertures,
+        layers=[LayerState(polarity=Polarity.Dark)],
+        coord_states=[],
+        bounding_box=bb,
+        diagnostics=[],
+    )
+    arr_dark = render_to_numpy(img_dark, vp)
+    dark_pixels = int(np.sum(arr_dark[:, :, 3] > 0))
+    assert dark_pixels > 0, "Dark-polarity flash produced no pixels"
+
+    # Dark + clear at same location: clear layer erases the dark pixels
+    img_both = ParsedImage(
+        draw_ops=[net_dark, net_clear],
+        apertures=apertures,
+        layers=[LayerState(polarity=Polarity.Dark), LayerState(polarity=Polarity.Clear)],
+        coord_states=[],
+        bounding_box=bb,
+        diagnostics=[],
+    )
+    arr_both = render_to_numpy(img_both, vp)
+    both_pixels = int(np.sum(arr_both[:, :, 3] > 0))
+    assert both_pixels < dark_pixels, (
+        f"Clear polarity should erase pixels: dark={dark_pixels}, after_clear={both_pixels}"
+    )

@@ -264,3 +264,70 @@ def test_compute_diff_no_callback_no_error() -> None:
     img = parse_gerber(_FCU_BEFORE.read_text(encoding="utf-8"), source_path=_FCU_BEFORE)
     result = compute_diff(img, img, width=64, height=64)
     assert result.changed_pixel_count == 0
+
+
+# ---------------------------------------------------------------------------
+# P7-5: merge_overlapping_regions cascade
+# ---------------------------------------------------------------------------
+
+
+def test_merge_cascade_three_regions() -> None:
+    """A-C overlap, C-B overlap, but A-B do NOT overlap directly.
+
+    After merging A+C → A', A' now overlaps B → all three merge into one.
+    """
+    # A=[0,0,2,1], C=[1.5,0,3,1], B=[2.5,0,4,1]; tolerance=0.1
+    # A ends at x=2, C starts at x=1.5 → overlap (2 > 1.5)
+    # C ends at x=3, B starts at x=2.5 → overlap (3 > 2.5)
+    # A ends at x=2, B starts at x=2.5 → gap=0.5 > tolerance → no direct A-B overlap
+    r_a = _region(1, 0.0, 0.0, 2.0, 1.0)
+    r_c = _region(2, 1.5, 0.0, 3.0, 1.0)
+    r_b = _region(3, 2.5, 0.0, 4.0, 1.0)
+    result = merge_overlapping_regions([r_a, r_c, r_b], tolerance=0.1)
+    assert len(result) == 1, (
+        f"Expected all three to cascade-merge into 1 region, got {len(result)}"
+    )
+    merged = result[0]
+    assert merged.bounding_box.min_x <= 0.0
+    assert merged.bounding_box.max_x >= 4.0
+
+
+# ---------------------------------------------------------------------------
+# P7-9: compute_diff alignment_offset
+# ---------------------------------------------------------------------------
+
+
+def _dot_image(x: float = 0.0, y: float = 0.0) -> ParsedImage:
+    """ParsedImage with a single circle flash at (x, y)."""
+    ap_code = 10
+    from gerberdelta.types import ApertureState, DrawOp, InterpolationMode
+    net = DrawOp(
+        start_x=x, start_y=y, stop_x=x, stop_y=y,
+        aperture_index=ap_code, aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear, layer_index=0, net_state_index=0,
+    )
+    from gerberdelta.types import CircleAperture
+    bb = BoundingBox()
+    bb.expand(x, y, 0.02)
+    return ParsedImage(
+        draw_ops=[net],
+        apertures={ap_code: CircleAperture(diameter=0.04)},
+        layers=[LayerState()],
+        coord_states=[],
+        bounding_box=bb,
+        diagnostics=[],
+    )
+
+
+def test_compute_diff_alignment_offset_shifts_b() -> None:
+    """A large alignment_offset moves image_b out of alignment → changed pixels > 0."""
+    img = _dot_image(0.0, 0.0)
+    # Without offset: identical images → zero changed pixels.
+    result_no_offset = compute_diff(img, img, width=64, height=64)
+    assert result_no_offset.changed_pixel_count == 0
+
+    # With a 1-inch offset image_b is shifted far off the viewport → many changed pixels.
+    result_offset = compute_diff(img, img, width=64, height=64, alignment_offset=(1.0, 0.0))
+    assert result_offset.changed_pixel_count > 0, (
+        "alignment_offset=(1.0, 0.0) should shift image_b so there are changed pixels"
+    )

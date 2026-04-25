@@ -205,3 +205,32 @@ def test_draw_macro_flash_evaluation_failure_emits_warning(monkeypatch) -> None:
 
     with pytest.warns(UserWarning, match="evaluation failed"):
         draw_macro_flash(ctx, 0.0, 0.0, aperture)
+
+
+# ---------------------------------------------------------------------------
+# P7-7: MacroAperture unit_scale renders smaller geometry
+# ---------------------------------------------------------------------------
+
+
+def test_macro_flash_mm_unit_scale_renders_smaller() -> None:
+    """unit_scale=1/25.4 (mm→inch) renders a smaller circle than unit_scale=1.0."""
+    macro = parse_macro_body("C", "1,1,0.05,0,0,0")  # 0.05" radius circle
+
+    aperture_full = MacroAperture(macro_def=macro, params=[], unit_scale=1.0)
+    aperture_small = MacroAperture(macro_def=macro, params=[], unit_scale=1.0 / 25.4)
+
+    ctx_full, surface_full = _make_ctx()
+    draw_macro_flash(ctx_full, 0.0, 0.0, aperture_full)
+
+    ctx_small, surface_small = _make_ctx()
+    draw_macro_flash(ctx_small, 0.0, 0.0, aperture_small)
+
+    lit_full = _pixels_lit(surface_full)
+    lit_small = _pixels_lit(surface_small)
+
+    assert lit_full > 0, "unit_scale=1.0 produced no pixels"
+    assert lit_small > 0, "unit_scale=1/25.4 produced no pixels"
+    assert lit_small < lit_full, (
+        f"unit_scale=1/25.4 ({lit_small} px) should render fewer pixels than "
+        f"unit_scale=1.0 ({lit_full} px)"
+    )

@@ -1,4 +1,4 @@
-__version__ = "0.27.0"
+__version__ = "0.28.0"
 
 from gerberdelta.diff.diff_engine import SingleLayerDiff, compute_diff, compute_full_diff
 from gerberdelta.diff.layer_matcher import LayerPair, match_layers

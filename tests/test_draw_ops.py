@@ -249,3 +249,94 @@ def test_obround_stroke_wide_aperture_uses_max_dimension() -> None:
     wide = _stroke_surface(ObroundAperture(width=0.4, height=0.1))
     narrow = _stroke_surface(CircleAperture(diameter=0.1))
     assert wide > narrow * 2, f"wide={wide} should be >> narrow={narrow}"
+
+
+# ---------------------------------------------------------------------------
+# P7-6: PolygonAperture rotation shifts vertex positions
+# ---------------------------------------------------------------------------
+
+
+def test_polygon_flash_rotation_shifts_vertex_positions() -> None:
+    """A triangle at rotation=0 and rotation=60 deg render different pixel sets."""
+    import numpy as np
+
+    # Flash at origin (0, 0); ctx places origin at centre of 100×100 canvas.
+    origin_net = DrawOp(
+        start_x=0.0, start_y=0.0, stop_x=0.0, stop_y=0.0,
+        aperture_index=10, aperture_state=ApertureState.Flash,
+        interpolation=InterpolationMode.Linear, layer_index=0, net_state_index=0,
+    )
+
+    def _render_triangle(rotation_deg: float) -> np.ndarray:
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 100, 100)
+        ctx = cairo.Context(surface)
+        ctx.translate(50.0, 50.0)
+        ctx.scale(50.0, -50.0)
+        ctx.set_source_rgba(1.0, 1.0, 1.0, 1.0)
+        draw_flash(ctx, origin_net, PolygonAperture(outer_diameter=0.8, num_vertices=3, rotation=rotation_deg))
+        surface.flush()
+        return np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(100, 100, 4)
+
+    arr0 = _render_triangle(0.0)
+    arr60 = _render_triangle(60.0)
+
+    # Both renders must have some lit pixels.
+    assert arr0[:, :, 3].max() > 0, "rotation=0 produced no pixels"
+    assert arr60[:, :, 3].max() > 0, "rotation=60 produced no pixels"
+
+    # The two renders must differ (rotation moves the triangle vertices).
+    diff = np.any(arr0 != arr60, axis=-1)
+    assert diff.any(), "rotation=0 and rotation=60 produced identical pixels"
+
+
+# ---------------------------------------------------------------------------
+# P7-12: Pixel verification for existing flash tests
+# ---------------------------------------------------------------------------
+
+
+def _read_pixels(surface: cairo.ImageSurface, w: int = 100, h: int = 100) -> "np.ndarray":
+    import numpy as np
+    surface.flush()
+    return np.frombuffer(bytes(surface.get_data()), dtype=np.uint8).reshape(h, w, 4)
+
+
+def test_circle_flash_produces_pixels() -> None:
+    ctx, surface = _make_ctx()
+    draw_flash(ctx, _flash_net(), CircleAperture(diameter=0.5))
+    arr = _read_pixels(surface)
+    assert arr[:, :, 3].max() > 0, "CircleAperture flash produced no pixels"
+
+
+def test_rectangle_flash_produces_pixels() -> None:
+    ctx, surface = _make_ctx()
+    draw_flash(ctx, _flash_net(), RectangleAperture(width=0.5, height=0.3))
+    arr = _read_pixels(surface)
+    assert arr[:, :, 3].max() > 0, "RectangleAperture flash produced no pixels"
+
+
+def test_obround_flash_produces_pixels() -> None:
+    ctx, surface = _make_ctx()
+    draw_flash(ctx, _flash_net(), ObroundAperture(width=0.5, height=0.2))
+    arr = _read_pixels(surface)
+    assert arr[:, :, 3].max() > 0, "ObroundAperture flash produced no pixels"
+
+
+def test_polygon_flash_produces_pixels() -> None:
+    ctx, surface = _make_ctx()
+    draw_flash(ctx, _flash_net(), PolygonAperture(outer_diameter=0.5, num_vertices=6))
+    arr = _read_pixels(surface)
+    assert arr[:, :, 3].max() > 0, "PolygonAperture flash produced no pixels"
+
+
+def test_stroke_circle_produces_pixels() -> None:
+    ctx, surface = _make_ctx()
+    draw_net_as_stroke(ctx, _stroke_net(), CircleAperture(diameter=0.1))
+    arr = _read_pixels(surface)
+    assert arr[:, :, 3].max() > 0, "CircleAperture stroke produced no pixels"
+
+
+def test_stroke_rectangle_produces_pixels() -> None:
+    ctx, surface = _make_ctx()
+    draw_net_as_stroke(ctx, _stroke_net(), RectangleAperture(width=0.2, height=0.1))
+    arr = _read_pixels(surface)
+    assert arr[:, :, 3].max() > 0, "RectangleAperture stroke produced no pixels"
