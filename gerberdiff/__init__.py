@@ -1,5 +1,7 @@
 __version__ = "0.29.0"
 
+from typing import TYPE_CHECKING, Any
+
 from gerberdiff.diff.diff_engine import SingleLayerDiff, compute_diff, compute_full_diff
 from gerberdiff.diff.layer_matcher import LayerPair, match_layers
 from gerberdiff.geometry import (
@@ -10,7 +12,6 @@ from gerberdiff.geometry import (
 )
 from gerberdiff.parse.excellon_parser import parse_excellon
 from gerberdiff.parse.gerber_state import parse_gerber
-from gerberdiff.render.renderer import render_to_numpy, render_to_surface
 from gerberdiff.render.viewport import Viewport, compute_viewport
 from gerberdiff.types import (
     BoundingBox,
@@ -25,6 +26,23 @@ from gerberdiff.types import (
     Region,
     RegionFill,
 )
+
+if TYPE_CHECKING:
+    from gerberdiff.render.renderer import render_to_numpy, render_to_surface
+
+# The rasteriser requires the native cairo library; import it lazily so that
+# `import gerberdiff` -- and the Cairo-free parse/geometry pipelines -- work
+# on systems without it (PEP 562 module __getattr__).
+_LAZY_RENDER_ATTRS = ("render_to_numpy", "render_to_surface")
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_RENDER_ATTRS:
+        from gerberdiff.render import renderer
+
+        return getattr(renderer, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "BoundingBox",

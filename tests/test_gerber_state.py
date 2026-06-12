@@ -6,6 +6,7 @@ import pytest
 
 from gerberdiff.parse.gerber_state import parse_gerber
 from gerberdiff.types import ApertureType, DiagnosticSeverity, Polarity
+from tests.cairo_support import CAIRO_SKIP_REASON, HAS_CAIRO
 
 _FIXTURES = Path(__file__).parent / "fixtures" / "gerbers-before"
 
@@ -88,6 +89,7 @@ def test_region_fill_unclosed_at_eof_warns() -> None:
     assert any("region" in d.message.lower() for d in warnings)
 
 
+@pytest.mark.skipif(not HAS_CAIRO, reason=CAIRO_SKIP_REASON)
 def test_region_fill_renders_pixel() -> None:
     # End-to-end: a filled square region must produce at least one opaque pixel
     content = (

@@ -66,6 +66,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and fixture-board integration tests against an independently computed
   flash-matching oracle.
 
+### Changed
+
+- **Cairo is now imported lazily.** `import gerberdiff` no longer
+  requires the native cairo library; the parse and geometry pipelines
+  (including `gerberdiff geomdiff` and `gerberdiff parse`) work on
+  systems without it. Accessing the rasteriser (`render_to_numpy`,
+  `render_to_surface`, `compute_diff`, or the `render`/`diff` CLI
+  commands) raises the underlying `OSError` only when actually used.
+  Raster-engine tests skip cleanly when cairo is unavailable, which
+  fixes the previously failing Windows CI job.
+
 ## [0.21.0] - 2026-04-25
 
 ### Changed

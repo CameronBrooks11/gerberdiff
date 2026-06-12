@@ -27,7 +27,6 @@ import numpy as np
 from scipy.ndimage import center_of_mass, find_objects
 from scipy.ndimage import label as ndimage_label
 
-from gerberdiff.render.renderer import render_to_numpy
 from gerberdiff.render.viewport import (
     Viewport,
     compute_viewport,
@@ -97,6 +96,10 @@ def compute_diff(
         arrays are released.  Use this to write a PNG overlay without keeping
         all three ``(H, W, 4)`` arrays live simultaneously.
     """
+    # Lazy import: keeps `import gerberdiff` (and the Cairo-free geometry
+    # pipeline) working on systems without the native cairo library.
+    from gerberdiff.render.renderer import render_to_numpy
+
     bbox = merge_bounding_boxes(image_a.bounding_box, image_b.bounding_box)
     vp = compute_viewport(bbox, width, height)
 

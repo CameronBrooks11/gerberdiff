@@ -9,11 +9,13 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pytest
 from shapely import contains_xy
 
 from gerberdiff.geometry.layer_geometry import build_layer_geometry, resolve_geometry
 from gerberdiff.parse.gerber_state import parse_gerber
 from gerberdiff.types import Polarity
+from tests.cairo_support import CAIRO_SKIP_REASON, HAS_CAIRO
 
 _HEADER = "%FSLAX25Y25*%\n%MOIN*%\n"
 _FOOTER = "M02*\n"
@@ -268,6 +270,7 @@ def test_clear_inside_block_erases_globally() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skipif(not HAS_CAIRO, reason=CAIRO_SKIP_REASON)
 def test_geometry_matches_renderer_occupancy() -> None:
     """Resolved geometry must agree with the raster renderer pixel-for-pixel
     (>= 99% on a sample grid; anti-aliased edge pixels may differ)."""

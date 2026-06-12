@@ -57,7 +57,12 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - run: uv sync --dev
-      - run: uv run pytest tests/ --cov=gerberdiff --cov-report=xml --cov-fail-under=90 -q
+      - name: Test (with coverage gate)
+        if: matrix.os != 'windows-latest'
+        run: uv run pytest tests/ --cov=gerberdiff --cov-report=xml --cov-fail-under=90 -q
+      - name: Test (Windows, no system cairo -- raster tests skip)
+        if: matrix.os == 'windows-latest'
+        run: uv run pytest tests/ -q
       - uses: actions/upload-artifact@v7
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
         with:
