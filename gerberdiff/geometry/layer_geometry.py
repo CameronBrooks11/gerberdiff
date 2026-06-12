@@ -1,12 +1,20 @@
 """Assemble a ParsedImage into ordered, world-space expanded operations.
 
 This is the geometry engine's equivalent of the renderer's compile+render
-pass.  Each draw operation expands to an :class:`ExpandedOp` carrying:
+pass.  Each draw operation becomes an :class:`ExpandedOp` carrying:
 
-- world-space geometry (layer transforms and step-and-repeat applied),
+- a **lazy** world-space geometry (layer transforms and step-and-repeat
+  applied on first access),
 - effective polarity (dark adds material, clear subtracts),
-- a content signature for exact-cancellation matching between revisions,
+- a **source-based content signature** for exact-cancellation matching
+  between revisions, computed without expanding any geometry,
+- a conservative analytic bounding box (also computed without expansion),
 - provenance (source op, aperture identity, net name) for attribution.
+
+Laziness is the engine's core performance property: ops whose signatures
+match between revisions (typically the vast majority) never pay for shapely
+geometry construction at all.  Only changed ops -- and unchanged ops whose
+bounding boxes interact with changed material -- are ever expanded.
 
 Transform semantics mirror the renderer's CTM derivation exactly
 (``renderer.py::_render_layer``): coordinates are transformed
@@ -16,12 +24,17 @@ Block apertures **flatten into the outer replay sequence** with the flash
 translation composed in.  A clear layer inside a block erases previously
 drawn content globally (verified renderer behaviour), so effective polarity
 is Clear when *any* enclosing context or the op's own layer is Clear.
+
+Macro flashes are expanded eagerly: their evaluation can fail, and the
+resulting Warning diagnostic must surface deterministically rather than
+depending on which ops happen to be expanded.
 """
 
 from __future__ import annotations
 
 import hashlib
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from shapely import affinity
@@ -30,12 +43,14 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from gerberdiff.geometry.expand import flash_geometry, region_geometry, stroke_geometry
+from gerberdiff.parse.arc_math import arc_bounding_box
 from gerberdiff.types import (
     Aperture,
     ApertureState,
     BlockAperture,
     CircleAperture,
     Diagnostic,
+    DiagnosticSeverity,
     DrawOp,
     LayerState,
     MacroAperture,
@@ -55,6 +70,7 @@ _MAX_BLOCK_DEPTH = 10
 # in shapely's affine_transform convention (x' = a*x + b*y + tx, ...).
 _Matrix = tuple[float, float, float, float]
 _Offset = tuple[float, float]
+_Bounds = tuple[float, float, float, float]  # (min_x, min_y, max_x, max_y)
 _IDENTITY_M: _Matrix = (1.0, 0.0, 0.0, 1.0)
 _ZERO_T: _Offset = (0.0, 0.0)
 
@@ -68,19 +84,54 @@ _EMPTY: BaseGeometry = Polygon()
 
 @dataclass
 class ExpandedOp:
-    """One draw operation expanded to world-space geometry with provenance."""
+    """One draw operation with lazy world-space geometry and provenance."""
 
-    geom: BaseGeometry
     polarity: Polarity
     kind: str  # "flash" | "stroke" | "region"
     signature: str  # content hash: cancels exactly across revisions
     ap_signature: str  # aperture identity (dims), for moved/resized logic
     dims_signature: str  # like ap_signature but orientation-normalised
-    centroid_x: float
-    centroid_y: float
-    area: float  # square inches
+    bounds: _Bounds  # conservative world-space bbox (no expansion needed)
     net_name: str | None
     source: DrawOp | RegionFill
+    # Lazy expansion machinery (shared thunk across SR tiles).
+    _expand: Callable[[], BaseGeometry] = field(repr=False)
+    _m: _Matrix = field(repr=False)
+    _t: _Offset = field(repr=False)
+    _geom: BaseGeometry | None = field(default=None, repr=False)
+    _centroid: tuple[float, float] | None = field(default=None, repr=False)
+
+    @property
+    def geom(self) -> BaseGeometry:
+        """World-space geometry (expanded and transformed on first access)."""
+        if self._geom is None:
+            self._geom = _apply_affine(self._expand(), self._m, self._t)
+        return self._geom
+
+    @property
+    def centroid_x(self) -> float:
+        return self._centroid_xy()[0]
+
+    @property
+    def centroid_y(self) -> float:
+        return self._centroid_xy()[1]
+
+    @property
+    def area(self) -> float:
+        """Geometry area in square inches."""
+        return self.geom.area
+
+    def _centroid_xy(self) -> tuple[float, float]:
+        if self._centroid is None:
+            c = self.geom.centroid
+            if c.is_empty:  # degenerate geometry: fall back to bbox centre
+                self._centroid = (
+                    (self.bounds[0] + self.bounds[2]) / 2.0,
+                    (self.bounds[1] + self.bounds[3]) / 2.0,
+                )
+            else:
+                self._centroid = (c.x, c.y)
+        return self._centroid
 
 
 @dataclass
@@ -98,7 +149,7 @@ class LayerGeometry:
 
 
 def build_layer_geometry(parsed: ParsedImage) -> LayerGeometry:
-    """Expand every draw operation of *parsed* into world-space geometry."""
+    """Build the lazy expanded-op list for every draw operation of *parsed*."""
     result = LayerGeometry()
     _walk(
         draw_ops=parsed.draw_ops,
@@ -119,6 +170,7 @@ def resolve_geometry(ops: list[ExpandedOp]) -> BaseGeometry:
 
     Consecutive same-polarity ops are unioned in one call (associative), so
     the replay cost scales with the number of polarity *transitions*, not ops.
+    Forces expansion of every op.
     """
     acc: BaseGeometry = _EMPTY
     i = 0
@@ -165,9 +217,7 @@ def _walk(
         if cached is not None:
             return cached
         ls = layers[index]
-        m = _layer_matrix(ls)
-        tiles = _sr_tiles(ls)
-        info = (m, tiles, ls.polarity == Polarity.Clear)
+        info = (_layer_matrix(ls), _sr_tiles(ls), ls.polarity == Polarity.Clear)
         layer_cache[index] = info
         return info
 
@@ -179,21 +229,7 @@ def _walk(
         polarity = Polarity.Clear if (outer_clear or layer_clear) else Polarity.Dark
 
         if isinstance(item, RegionFill):
-            geom, diags = region_geometry(item)
-            result.diagnostics.extend(diags)
-            _emit_tiles(
-                result,
-                geom,
-                item,
-                "region",
-                ("region", "region"),
-                None,
-                outer_m,
-                outer_t,
-                layer_m,
-                tiles,
-                polarity,
-            )
+            _emit_region(result, item, outer_m, outer_t, layer_m, tiles, polarity)
             continue
 
         op = item
@@ -221,34 +257,190 @@ def _walk(
             continue
 
         if op.aperture_state == ApertureState.Flash:
-            geom, diags = flash_geometry(op, ap)
-            kind = "flash"
+            _emit_flash(result, op, ap, outer_m, outer_t, layer_m, tiles, polarity)
         else:  # ApertureState.On
-            geom, diags = stroke_geometry(op, ap)
-            kind = "stroke"
+            _emit_stroke(result, op, ap, outer_m, outer_t, layer_m, tiles, polarity)
+
+
+# ---------------------------------------------------------------------------
+# Per-kind emit helpers (descriptor construction, no geometry expansion)
+# ---------------------------------------------------------------------------
+
+
+def _emit_flash(
+    result: LayerGeometry,
+    op: DrawOp,
+    ap: Aperture | None,
+    outer_m: _Matrix,
+    outer_t: _Offset,
+    layer_m: _Matrix,
+    tiles: list[_Offset],
+    polarity: Polarity,
+) -> None:
+    if ap is None:
+        return
+
+    if isinstance(ap, MacroAperture):
+        # Eager: evaluation can fail and must warn deterministically.
+        geom, diags = flash_geometry(op, ap)
         result.diagnostics.extend(diags)
-        net_name = op.attributes.get("N") if op.attributes else None
-        _emit_tiles(
-            result,
-            geom,
-            op,
-            kind,
-            _aperture_signature(ap),
-            net_name,
-            outer_m,
-            outer_t,
-            layer_m,
-            tiles,
-            polarity,
+        if geom.is_empty:
+            return
+        thunk = _const_thunk(geom)
+        op_bounds: _Bounds = geom.bounds
+    else:
+        extents = _aperture_half_extents(ap)
+        if extents is None:
+            return
+        hx, hy = extents
+        x, y = op.stop_x, op.stop_y
+        thunk = _memo_thunk(lambda: flash_geometry(op, ap)[0])
+        op_bounds = (x - hx, y - hy, x + hx, y + hy)
+
+    ap_sig, dims_sig = _aperture_signature(ap)
+    base_sig = f"flash|{polarity.value}|{ap_sig}|{op.stop_x!r},{op.stop_y!r}"
+    _emit_tiles(
+        result,
+        op,
+        "flash",
+        ap_sig,
+        dims_sig,
+        base_sig,
+        op_bounds,
+        thunk,
+        op.attributes.get("N") if op.attributes else None,
+        outer_m,
+        outer_t,
+        layer_m,
+        tiles,
+        polarity,
+    )
+
+
+def _emit_stroke(
+    result: LayerGeometry,
+    op: DrawOp,
+    ap: Aperture | None,
+    outer_m: _Matrix,
+    outer_t: _Offset,
+    layer_m: _Matrix,
+    tiles: list[_Offset],
+    polarity: Polarity,
+) -> None:
+    if ap is None or isinstance(ap, (BlockAperture, MacroAperture)):
+        # Strokes with macro/block apertures are not meaningful; the raster
+        # engine draws them with a hairline -- skip in the geometry engine.
+        return
+    extents = _aperture_half_extents(ap)
+    if extents is None:
+        return
+    hx, hy = extents
+    brush = max(hx, hy)  # conservative half-extent in any direction
+
+    arc = op.arc_segment
+    if arc is not None:
+        bb = arc_bounding_box(arc, brush)
+        op_bounds: _Bounds = (bb.min_x, bb.min_y, bb.max_x, bb.max_y)
+        arc_sig = (
+            f"|arc:{arc.center_x!r},{arc.center_y!r},{arc.radius!r},"
+            f"{arc.start_angle_deg!r},{arc.end_angle_deg!r}"
         )
+        if not isinstance(ap, CircleAperture):
+            # Static decision: non-round arc strokes use the round-brush
+            # approximation (see expand._arc_stroke).
+            result.diagnostics.append(
+                Diagnostic(
+                    severity=DiagnosticSeverity.Info,
+                    message=(
+                        f"arc stroke with {type(ap).__name__} approximated by "
+                        f"a round brush of diameter {2.0 * brush:.6f} in"
+                    ),
+                )
+            )
+    else:
+        op_bounds = (
+            min(op.start_x, op.stop_x) - brush,
+            min(op.start_y, op.stop_y) - brush,
+            max(op.start_x, op.stop_x) + brush,
+            max(op.start_y, op.stop_y) + brush,
+        )
+        arc_sig = ""
+
+    ap_sig, dims_sig = _aperture_signature(ap)
+    base_sig = (
+        f"stroke|{polarity.value}|{ap_sig}"
+        f"|{op.start_x!r},{op.start_y!r},{op.stop_x!r},{op.stop_y!r}{arc_sig}"
+    )
+    _emit_tiles(
+        result,
+        op,
+        "stroke",
+        ap_sig,
+        dims_sig,
+        base_sig,
+        op_bounds,
+        _memo_thunk(lambda: stroke_geometry(op, ap)[0]),
+        op.attributes.get("N") if op.attributes else None,
+        outer_m,
+        outer_t,
+        layer_m,
+        tiles,
+        polarity,
+    )
+
+
+def _emit_region(
+    result: LayerGeometry,
+    region: RegionFill,
+    outer_m: _Matrix,
+    outer_t: _Offset,
+    layer_m: _Matrix,
+    tiles: list[_Offset],
+    polarity: Polarity,
+) -> None:
+    bounds = _region_bounds(region)
+    if bounds is None:
+        return  # degenerate region (no drawable contour)
+    sig_parts = [f"region|{polarity.value}"]
+    for seg in region.segments:
+        arc = seg.arc_segment
+        arc_sig = (
+            f";{arc.center_x!r},{arc.center_y!r},{arc.radius!r},"
+            f"{arc.start_angle_deg!r},{arc.end_angle_deg!r}"
+            if arc is not None
+            else ""
+        )
+        sig_parts.append(
+            f"{seg.aperture_state.value}:{seg.start_x!r},{seg.start_y!r},"
+            f"{seg.stop_x!r},{seg.stop_y!r}{arc_sig}"
+        )
+    _emit_tiles(
+        result,
+        region,
+        "region",
+        "region",
+        "region",
+        "|".join(sig_parts),
+        bounds,
+        _memo_thunk(lambda: region_geometry(region)[0]),
+        None,
+        outer_m,
+        outer_t,
+        layer_m,
+        tiles,
+        polarity,
+    )
 
 
 def _emit_tiles(
     result: LayerGeometry,
-    geom: BaseGeometry,
     source: DrawOp | RegionFill,
     kind: str,
-    signatures: tuple[str, str],
+    ap_signature: str,
+    dims_signature: str,
+    base_signature: str,
+    op_bounds: _Bounds,
+    thunk: Callable[[], BaseGeometry],
     net_name: str | None,
     outer_m: _Matrix,
     outer_t: _Offset,
@@ -256,30 +448,110 @@ def _emit_tiles(
     tiles: list[_Offset],
     polarity: Polarity,
 ) -> None:
-    if geom.is_empty:
-        return
-    ap_signature, dims_signature = signatures
     for tile in tiles:
         m, t = _compose(outer_m, outer_t, layer_m, _mat_vec(layer_m, tile))
-        world = _apply_affine(geom, m, t)
-        if world.is_empty:
-            continue
-        centroid = world.centroid
+        signature = _hash_signature(f"{base_signature}|affine:{m!r},{t!r}")
         result.ops.append(
             ExpandedOp(
-                geom=world,
                 polarity=polarity,
                 kind=kind,
-                signature=_content_signature(world, polarity, kind),
+                signature=signature,
                 ap_signature=ap_signature,
                 dims_signature=dims_signature,
-                centroid_x=centroid.x,
-                centroid_y=centroid.y,
-                area=world.area,
+                bounds=_transform_bounds(op_bounds, m, t),
                 net_name=net_name,
                 source=source,
+                _expand=thunk,
+                _m=m,
+                _t=t,
             )
         )
+
+
+# ---------------------------------------------------------------------------
+# Lazy-expansion helpers
+# ---------------------------------------------------------------------------
+
+
+def _memo_thunk(fn: Callable[[], BaseGeometry]) -> Callable[[], BaseGeometry]:
+    """Memoise an expansion function so SR tiles share one op-space geometry."""
+    cache: list[BaseGeometry] = []
+
+    def thunk() -> BaseGeometry:
+        if not cache:
+            cache.append(fn())
+        return cache[0]
+
+    return thunk
+
+
+def _const_thunk(geom: BaseGeometry) -> Callable[[], BaseGeometry]:
+    return lambda: geom
+
+
+def _aperture_half_extents(ap: Aperture) -> tuple[float, float] | None:
+    """Analytic half-extents of a simple aperture, or None if degenerate.
+
+    Mirrors the validity checks in ``expand._aperture_outline``.
+    """
+    match ap:
+        case CircleAperture():
+            if ap.diameter <= 0.0:
+                return None
+            r = ap.diameter / 2.0
+            return (r, r)
+        case RectangleAperture() | ObroundAperture():
+            if ap.width <= 0.0 or ap.height <= 0.0:
+                return None
+            return (ap.width / 2.0, ap.height / 2.0)
+        case PolygonAperture():
+            if ap.outer_diameter <= 0.0 or ap.num_vertices < 3:
+                return None
+            r = ap.outer_diameter / 2.0
+            return (r, r)
+    return None
+
+
+def _region_bounds(region: RegionFill) -> _Bounds | None:
+    """Conservative bbox of a region fill, or None when degenerate."""
+    min_x = math.inf
+    min_y = math.inf
+    max_x = -math.inf
+    max_y = -math.inf
+    on_segments = 0
+    for seg in region.segments:
+        if seg.aperture_state != ApertureState.Off:
+            on_segments += 1
+        arc = seg.arc_segment
+        if arc is not None:
+            bb = arc_bounding_box(arc)
+            min_x = min(min_x, bb.min_x)
+            min_y = min(min_y, bb.min_y)
+            max_x = max(max_x, bb.max_x)
+            max_y = max(max_y, bb.max_y)
+        else:
+            min_x = min(min_x, seg.start_x, seg.stop_x)
+            min_y = min(min_y, seg.start_y, seg.stop_y)
+            max_x = max(max_x, seg.start_x, seg.stop_x)
+            max_y = max(max_y, seg.start_y, seg.stop_y)
+    if on_segments < 2 or not math.isfinite(min_x):
+        return None
+    return (min_x, min_y, max_x, max_y)
+
+
+def _transform_bounds(b: _Bounds, m: _Matrix, t: _Offset) -> _Bounds:
+    """Map a bbox through an affine; the corner hull stays conservative."""
+    if m == _IDENTITY_M and t == _ZERO_T:
+        return b
+    corners = (
+        _vec_add(_mat_vec(m, (b[0], b[1])), t),
+        _vec_add(_mat_vec(m, (b[2], b[1])), t),
+        _vec_add(_mat_vec(m, (b[2], b[3])), t),
+        _vec_add(_mat_vec(m, (b[0], b[3])), t),
+    )
+    xs = [c[0] for c in corners]
+    ys = [c[1] for c in corners]
+    return (min(xs), min(ys), max(xs), max(ys))
 
 
 # ---------------------------------------------------------------------------
@@ -287,18 +559,15 @@ def _emit_tiles(
 # ---------------------------------------------------------------------------
 
 
-def _content_signature(geom: BaseGeometry, polarity: Polarity, kind: str) -> str:
-    """Identity hash of the final world-space geometry.
+def _hash_signature(content: str) -> str:
+    """Hash a source-content signature string.
 
-    Identical source text parses to identical floats and expands through the
-    same deterministic construction, so an unchanged op yields a bit-identical
-    WKB across revisions.  Matching on the *result* geometry also cancels ops
-    that are equal despite different D-code numbering between files.
+    Identical source text parses to identical floats, whose ``repr`` is
+    exact, so an unchanged op yields a bit-identical signature across
+    revisions -- without constructing any geometry.  Aperture identity is by
+    *content*, so D-code renumbering between files does not break matching.
     """
-    h = hashlib.sha1(geom.wkb)
-    h.update(polarity.value.encode())
-    h.update(kind.encode())
-    return h.hexdigest()
+    return hashlib.sha1(content.encode()).hexdigest()
 
 
 def _aperture_signature(ap: Aperture | None) -> tuple[str, str]:

@@ -128,6 +128,10 @@ def attribute_changes(
                     unchanged_count += 1
                 else:
                     changes.append(OpChange(kind=KIND_MOVED, before=a_op, after=b_op, dx=dx, dy=dy))
+            elif offset <= move_tol and a_op.geom.equals(b_op.geom):
+                # Different aperture description, identical geometry (e.g. a
+                # square obround re-declared as a circle): not a change.
+                unchanged_count += 1
             else:
                 changes.append(OpChange(kind=KIND_RESIZED, before=a_op, after=b_op, dx=dx, dy=dy))
 

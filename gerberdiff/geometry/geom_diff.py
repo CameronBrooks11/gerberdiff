@@ -7,17 +7,25 @@ Produces (added, removed) material as polygonal geometry:
 
 Fast path (all-dark layers, the overwhelmingly common case)
 -----------------------------------------------------------
-Ops whose content signature appears in both revisions cancel *exactly*, so
-only changed ops plus the unchanged ops that spatially interact with them
-need to enter the boolean math:
+Ops whose content signature appears in both revisions cancel *exactly* and
+are never expanded.  Only changed ops enter the boolean math:
 
-    added   = union(B_only) \\ (union(A_only) | union(context))
-    removed = union(A_only) \\ (union(B_only) | union(context))
+    added_raw   = union(B_only) \\ union(A_only)
+    removed_raw = union(A_only) \\ union(B_only)
 
-where ``context`` is the unchanged material whose bounding boxes intersect
-any changed op (STRtree query).  This is exact -- unchanged material that
-touches no changed material cannot affect either difference -- and shrinks
-the union cost from thousands of ops to the changed neighbourhood.
+Unchanged material can still mask part of a raw difference (e.g. a removed
+trace running under an unchanged pad), so each raw result is then reduced
+by the unchanged ops whose bounding boxes intersect it:
+
+    added   = added_raw   \\ union(interacting unchanged)
+    removed = removed_raw \\ union(interacting unchanged)
+
+This is exact -- unchanged material that does not intersect a raw
+difference cannot affect it -- and the bbox query uses the ops' analytic
+bounds, so non-interacting unchanged ops are never expanded at all.
+
+All differences are snap-rounded via GEOS ``grid_size`` for numeric
+robustness (no separate ``set_precision`` pass).
 
 Full path
 ---------
@@ -28,8 +36,8 @@ sides and difference the resolved geometry.  Correct, slower.
 
 from __future__ import annotations
 
-from shapely import set_precision
-from shapely.geometry import MultiPolygon, Polygon
+import shapely
+from shapely.geometry import MultiPolygon, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.strtree import STRtree
@@ -62,8 +70,8 @@ def boolean_layer_diff(
     if a.has_clear or b.has_clear:
         geom_a = resolve_geometry(a.ops)
         geom_b = resolve_geometry(b.ops)
-        added = _safe_difference(geom_b, geom_a)
-        removed = _safe_difference(geom_a, geom_b)
+        added = _difference(geom_b, geom_a)
+        removed = _difference(geom_a, geom_b)
         return _drop_dust(added, dust_area), _drop_dust(removed, dust_area)
 
     if not a_only and not b_only:
@@ -71,10 +79,16 @@ def boolean_layer_diff(
 
     u_a_only = unary_union([op.geom for op in a_only]) if a_only else _EMPTY
     u_b_only = unary_union([op.geom for op in b_only]) if b_only else _EMPTY
-    context = _interacting_context(unchanged, a_only, b_only)
 
-    added = _safe_difference(u_b_only, u_a_only.union(context))
-    removed = _safe_difference(u_a_only, u_b_only.union(context))
+    added_raw = _difference(u_b_only, u_a_only)
+    removed_raw = _difference(u_a_only, u_b_only)
+
+    # Reduce by unchanged material that intersects the raw differences.
+    # The raw results are small (the changed neighbourhood), so the masked
+    # differences are cheap even on dense layers.
+    tree = _bounds_tree(unchanged)
+    added = _subtract_interacting(added_raw, unchanged, tree)
+    removed = _subtract_interacting(removed_raw, unchanged, tree)
     return _drop_dust(added, dust_area), _drop_dust(removed, dust_area)
 
 
@@ -83,34 +97,37 @@ def boolean_layer_diff(
 # ---------------------------------------------------------------------------
 
 
-def _interacting_context(
+def _bounds_tree(ops: list[ExpandedOp]) -> STRtree | None:
+    """STRtree over the ops' analytic bounding boxes (no expansion)."""
+    if not ops:
+        return None
+    return STRtree([box(*op.bounds) for op in ops])
+
+
+def _subtract_interacting(
+    raw: BaseGeometry,
     unchanged: list[ExpandedOp],
-    a_only: list[ExpandedOp],
-    b_only: list[ExpandedOp],
+    tree: STRtree | None,
 ) -> BaseGeometry:
-    """Union of unchanged ops whose bboxes intersect any changed op."""
-    if not unchanged:
-        return _EMPTY
-    tree = STRtree([op.geom for op in unchanged])
+    """Subtract unchanged ops whose bboxes intersect *raw* from it."""
+    if raw.is_empty or tree is None:
+        return raw
     hit_indices: set[int] = set()
-    for op in a_only:
-        hit_indices.update(int(i) for i in tree.query(op.geom))
-    for op in b_only:
-        hit_indices.update(int(i) for i in tree.query(op.geom))
+    for part in _polygon_parts(raw):
+        hit_indices.update(int(i) for i in tree.query(part))
     if not hit_indices:
-        return _EMPTY
-    return unary_union([unchanged[i].geom for i in sorted(hit_indices)])
+        return raw
+    context = unary_union([unchanged[i].geom for i in sorted(hit_indices)])
+    return _difference(raw, context)
 
 
-def _safe_difference(minuend: BaseGeometry, subtrahend: BaseGeometry) -> BaseGeometry:
+def _difference(minuend: BaseGeometry, subtrahend: BaseGeometry) -> BaseGeometry:
     """Snap-rounded difference, robust against float-noise topology errors."""
     if minuend.is_empty:
         return _EMPTY
     if subtrahend.is_empty:
         return minuend
-    m = set_precision(minuend, _GRID_IN)
-    s = set_precision(subtrahend, _GRID_IN)
-    return m.difference(s)
+    return shapely.difference(minuend, subtrahend, grid_size=_GRID_IN)
 
 
 def _drop_dust(geom: BaseGeometry, dust_area: float) -> BaseGeometry:
