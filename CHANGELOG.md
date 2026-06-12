@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-06-12
+
+### Added
+
+- **Geometry diff engine** (`gerberdiff/geometry/`) -- a second,
+  Cairo-free diff pipeline operating on the parsed vector geometry via
+  `shapely`. Resolution-independent and attributed: each change is
+  classified as `added`, `removed`, `moved` (with dx/dy displacement,
+  down to micrometres), or `resized`, with net names from `%TO.N%`
+  attributes propagated onto changes. The raster engine is unchanged;
+  the two are complementary (hybrid architecture). See
+  `docs/geometry-diff.md`.
+
+  - Aperture expansion: exact primitives with adaptive tessellation
+    (<= 1 um chord tolerance); exact Minkowski sums for non-round
+    linear strokes (convex hull of the aperture at both endpoints);
+    all 7 macro primitive types with spec-compliant exposure scoping;
+    region fills with even-odd contour semantics; aperture holes
+    subtracted from the flash only (spec semantics).
+  - Polarity as ordered boolean replay (dark unions, clear subtracts),
+    including block apertures flattened into the outer replay with
+    renderer-verified global-erase semantics for block-internal clears.
+  - Exact-cancellation matching: ops carry source-based content
+    signatures (aperture *content*, not D-code numbering), so unchanged
+    ops cancel exactly and -- via lazy expansion -- never construct
+    geometry at all.
+  - Boolean added/removed material per layer with snap-rounded
+    differences and a dust filter; full ordered-replay fallback when
+    clear polarity is present.
+  - Attribution: KD-tree gated matching with tunable tolerances
+    (`move_tol`, `gate_radius`, `area_tol`); orientation-normalised
+    dimension comparison so a 90-degree-rotated footprint classifies
+    as `moved`, not `resized`.
+
+- **`gerberdiff geomdiff` CLI subcommand** with `--move-tol`,
+  `--gate-radius`, `--area-tol`, `--dust-area` (mm units), `--out-json`,
+  `--out-svg`, `--layer`, `--fail-on-diff`, `-q`/`-v`.
+
+- **JSON report schema version 2** (`"mode": "geometry"`): per-layer
+  change counts, added/removed areas (mm^2), per-change records with
+  centroid/area/displacement/net, and the tolerances used. Documented
+  in `docs/schema.md`.
+
+- **SVG overlay export** (`export/svg_export.py`, Cairo-free): removed
+  red, added green, moved blue with displacement lines, resized orange;
+  even-odd fill preserves aperture holes.
+
+- **Public API**: `compute_geometry_diff`, `GeometryChange`,
+  `LayerGeometryDiff`, `GeometryDiffResult` exported from the top-level
+  package.
+
+- **Dependency**: `shapely >= 2.0` (binary wheels with bundled GEOS; no
+  system library required). Dev dependency `types-shapely` for mypy.
+
+- 127 new tests, including a differential test pinning resolved
+  geometry to the Cairo renderer's occupancy (>= 99% pixel agreement)
+  and fixture-board integration tests against an independently computed
+  flash-matching oracle.
+
 ## [0.21.0] - 2026-04-25
 
 ### Changed
@@ -459,7 +518,8 @@ merge_tolerance) -> SingleLayerDiff`.
 - mypy `strict=true`, `warn_unused_ignores=true`, `cairocffi.*` override for missing stubs.
 - 2 smoke tests in `tests/test_scaffold.py`.
 
-[Unreleased]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.21.0...v0.29.0
 [0.14.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.11.0...v0.12.0

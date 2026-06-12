@@ -1,4 +1,4 @@
-__version__ = "0.28.0"
+__version__ = "0.29.0"
 
 from gerberdiff.diff.diff_engine import SingleLayerDiff, compute_diff, compute_full_diff
 from gerberdiff.diff.layer_matcher import LayerPair, match_layers
