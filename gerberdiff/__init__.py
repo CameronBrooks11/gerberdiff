@@ -2,6 +2,12 @@ __version__ = "0.28.0"
 
 from gerberdiff.diff.diff_engine import SingleLayerDiff, compute_diff, compute_full_diff
 from gerberdiff.diff.layer_matcher import LayerPair, match_layers
+from gerberdiff.geometry import (
+    GeometryChange,
+    GeometryDiffResult,
+    LayerGeometryDiff,
+    compute_geometry_diff,
+)
 from gerberdiff.parse.excellon_parser import parse_excellon
 from gerberdiff.parse.gerber_state import parse_gerber
 from gerberdiff.render.renderer import render_to_numpy, render_to_surface
@@ -28,9 +34,13 @@ __all__ = [
     "DiagnosticSeverity",
     # Diff result types
     "DiffResult",
+    # Geometry diff
+    "GeometryChange",
+    "GeometryDiffResult",
     # Exceptions
     "GerberParseError",
     "LayerDiffResult",
+    "LayerGeometryDiff",
     "LayerPair",
     "LayerStatus",
     "LayerType",
@@ -45,6 +55,7 @@ __all__ = [
     # Diff
     "compute_diff",
     "compute_full_diff",
+    "compute_geometry_diff",
     "compute_viewport",
     # Layer matching
     "match_layers",
