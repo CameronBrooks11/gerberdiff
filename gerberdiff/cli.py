@@ -17,7 +17,12 @@ _MEMORY_WARN_PIXELS = 16_777_216  # 4096^2
 @click.group()
 @click.version_option(__version__, prog_name="gerberdiff")
 def cli() -> None:
-    """Visual raster diff tool for Gerber/Excellon PCB design files."""
+    """Diff tool for Gerber/Excellon PCB design files.
+
+    Two complementary engines: `diff` renders visual raster overlays of
+    changed pixels; `geomdiff` computes resolution-independent, attributed
+    changes (added / removed / moved / resized) on the vector geometry.
+    """
 
 
 @cli.command("parse")

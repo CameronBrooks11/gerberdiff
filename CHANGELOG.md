@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-06-13
+
+### Changed
+
+- **Package metadata reflects both engines** -- the PyPI `description`
+  and the CLI group help text described only the raster engine; both now
+  cover the raster overlay and geometry diff pipelines. Added `geometry`
+  and `shapely` to the package keywords. No behaviour changes.
+
 ## [0.29.0] - 2026-06-12
 
 ### Added
@@ -529,7 +538,8 @@ merge_tolerance) -> SingleLayerDiff`.
 - mypy `strict=true`, `warn_unused_ignores=true`, `cairocffi.*` override for missing stubs.
 - 2 smoke tests in `tests/test_scaffold.py`.
 
-[Unreleased]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.29.1...HEAD
+[0.29.1]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.21.0...v0.29.0
 [0.14.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.12.0...v0.13.0
