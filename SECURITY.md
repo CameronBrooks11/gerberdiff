@@ -2,10 +2,12 @@
 
 ## Supported versions
 
+Only the latest released minor version is supported.
+
 | Version | Supported |
 | ------- | --------- |
-| 0.14.x  | Yes       |
-| < 0.14  | No        |
+| 0.29.x  | Yes       |
+| < 0.29  | No        |
 
 ## Reporting a vulnerability
 

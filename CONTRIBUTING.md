@@ -36,8 +36,11 @@ All three must pass with no errors before a PR will be merged. CI enforces this 
 
 ## Commit messages
 
-- Single sentence, imperative mood, no trailing period
-- No phase or ticket prefix required (e.g. `Add viewport clamping for negative-Y boards`)
+- Single-sentence subject, imperative mood, no trailing period
+- [Conventional-commit](https://www.conventionalcommits.org/) type prefixes
+  (`feat:`, `fix:`, `docs:`, `test:`, `perf:`, `chore:`, `ci:`) are
+  encouraged and used throughout recent history
+  (e.g. `feat(geometry): add geometry diff engine core`)
 
 ## Pull request checklist
 
@@ -62,7 +65,7 @@ many fonts and meaningless to grep.
 **Banned characters and their ASCII replacements:**
 
 | Character         | Codepoint | Use instead |
-| ----------------- | --------- | ----------- | ------ |
+| ----------------- | --------- | ----------- |
 | em dash           | U+2014    | `--`        |
 | en dash           | U+2013    | `-`         |
 | ellipsis          | U+2026    | `...`       |
@@ -75,8 +78,8 @@ many fonts and meaningless to grep.
 | almost-equal      | U+2248    | `~=`        |
 | plus-minus        | U+00B1    | `+/-`       |
 | degree            | U+00B0    | `deg`       |
-| superscript 2     | U+00B2    | `^2`        |
-| box-drawing chars | U+2500+   | `-`, `      | `, `+` |
+| superscript 2     | U+00B2    | `^2`            |
+| box-drawing chars | U+2500+   | `-`, `\|`, `+`  |
 
 To check a branch before committing:
 

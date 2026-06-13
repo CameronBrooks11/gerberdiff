@@ -105,7 +105,8 @@ source = ["gerberdiff"]
 omit   = ["gerberdiff/cli.py"]   # CLI tested via integration; exclude from line-coverage gate
 
 [tool.coverage.report]
-fail_under    = 85
+# Keep in sync with the CI gate (--cov-fail-under in .github/workflows/ci.yml).
+fail_under    = 90
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
