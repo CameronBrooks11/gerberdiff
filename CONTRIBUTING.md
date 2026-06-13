@@ -65,7 +65,7 @@ many fonts and meaningless to grep.
 **Banned characters and their ASCII replacements:**
 
 | Character         | Codepoint | Use instead |
-| ----------------- | --------- | ----------- | ------ |
+| ----------------- | --------- | ----------- |
 | em dash           | U+2014    | `--`        |
 | en dash           | U+2013    | `-`         |
 | ellipsis          | U+2026    | `...`       |
@@ -78,8 +78,8 @@ many fonts and meaningless to grep.
 | almost-equal      | U+2248    | `~=`        |
 | plus-minus        | U+00B1    | `+/-`       |
 | degree            | U+00B0    | `deg`       |
-| superscript 2     | U+00B2    | `^2`        |
-| box-drawing chars | U+2500+   | `-`, `      | `, `+` |
+| superscript 2     | U+00B2    | `^2`            |
+| box-drawing chars | U+2500+   | `-`, `\|`, `+`  |
 
 To check a branch before committing:
 
