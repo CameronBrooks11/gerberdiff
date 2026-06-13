@@ -226,7 +226,21 @@ def region_geometry(region: RegionFill) -> tuple[BaseGeometry, list[Diagnostic]]
 
     geom: BaseGeometry = _EMPTY
     for contour in contours:
-        ring = make_valid(Polygon(contour))
+        # make_valid can emit line/point parts for degenerate (e.g.
+        # collinear) contours; only polygonal area participates in the fill.
+        ring = _polygonal_only(make_valid(Polygon(contour)))
+        if ring.is_empty:
+            continue
         # Even-odd combination: overlapping areas toggle.
         geom = geom.symmetric_difference(ring)
     return geom, _NO_DIAGS
+
+
+def _polygonal_only(geom: BaseGeometry) -> BaseGeometry:
+    """Strip non-areal parts (lines, points) from a geometry."""
+    if isinstance(geom, Polygon) or geom.is_empty:
+        return geom
+    parts = [g for g in getattr(geom, "geoms", []) if isinstance(g, Polygon)]
+    if not parts:
+        return _EMPTY
+    return unary_union(parts)

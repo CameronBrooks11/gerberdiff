@@ -36,8 +36,11 @@ All three must pass with no errors before a PR will be merged. CI enforces this 
 
 ## Commit messages
 
-- Single sentence, imperative mood, no trailing period
-- No phase or ticket prefix required (e.g. `Add viewport clamping for negative-Y boards`)
+- Single-sentence subject, imperative mood, no trailing period
+- [Conventional-commit](https://www.conventionalcommits.org/) type prefixes
+  (`feat:`, `fix:`, `docs:`, `test:`, `perf:`, `chore:`, `ci:`) are
+  encouraged and used throughout recent history
+  (e.g. `feat(geometry): add geometry diff engine core`)
 
 ## Pull request checklist
 

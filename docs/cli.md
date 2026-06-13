@@ -49,7 +49,6 @@ gerberdiff diff before/ after/ --align-offset 0.5,0    # shift board B by 0.5 in
 | ------ | -------------------------------------------------- |
 | Red    | Geometry present in **before** only (removed)      |
 | Green  | Geometry present in **after** only (added)         |
-| Yellow | Geometry changed (both non-zero, different value)  |
 | Grey   | Unchanged geometry (only with `--png-show-common`) |
 
 ## `geomdiff` -- geometry-aware diff of two layer directories

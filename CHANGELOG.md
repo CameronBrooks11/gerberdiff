@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Degenerate region contours no longer leak line geometry** -- a G36/G37
+  contour whose points are collinear produced a zero-area `MultiLineString`
+  from `make_valid` that flowed into the geometry engine; region expansion
+  now keeps only polygonal parts.
+
+### Changed
+
+- Local coverage floor aligned with the CI gate (`fail_under` 85 -> 90;
+  actual coverage is ~94%).
+- Stale documentation corrected: the overlay-PNG colour table no longer
+  lists the removed "yellow" class; `SECURITY.md` supported versions
+  updated from 0.14.x to 0.29.x; `CONTRIBUTING.md` blesses
+  conventional-commit prefixes (matching recent history).
+- Package `__init__` modules for `parse`, `render`, `diff`, and `export`
+  gained one-line docstrings.
+
+### Added
+
+- Edge-case test suite for the geometry engine's guard paths: block
+  nesting depth limit, invalid layer indices, zero-dimension apertures,
+  degenerate regions and strokes, macro flash dispatch, the
+  equal-geometry attribution guard, and driver diagnostic forwarding.
+
 ## [0.29.1] - 2026-06-13
 
 ### Changed
