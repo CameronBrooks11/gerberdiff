@@ -362,5 +362,166 @@ def diff_cmd(
     sys.exit(1 if fail_on_diff and diff_result.has_changes else 0)
 
 
+# ---------------------------------------------------------------------------
+# geomdiff subcommand
+# ---------------------------------------------------------------------------
+
+
+@cli.command("geomdiff")
+@click.argument("before_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("after_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option(
+    "--layer",
+    "layers",
+    multiple=True,
+    help="Restrict diff to this layer name (repeatable).",
+)
+@click.option(
+    "--move-tol",
+    default=0.005,
+    show_default=True,
+    help="Minimum displacement (mm) to report a matched object as moved.",
+)
+@click.option(
+    "--gate-radius",
+    default=0.2,
+    show_default=True,
+    help="Maximum distance (mm) at which two objects can pair as the same.",
+)
+@click.option(
+    "--area-tol",
+    default=0.01,
+    show_default=True,
+    help="Relative area delta still counted as same dimensions.",
+)
+@click.option(
+    "--dust-area",
+    default=1e-6,
+    show_default=True,
+    help="Drop boolean-diff components smaller than this area (mm^2).",
+)
+@click.option(
+    "--out-json",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write geometry JSON report (schema v2) to this file.",
+)
+@click.option(
+    "--out-svg",
+    "out_svg_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Write per-layer SVG overlays to this directory.",
+)
+@click.option("--overwrite", is_flag=True, help="Allow overwriting existing output files.")
+@click.option("--fail-on-diff", is_flag=True, help="Exit with code 1 if any changes are detected.")
+@click.option("-q", "--quiet", is_flag=True, help="Suppress all output except errors.")
+@click.option("-v", "--verbose", is_flag=True, help="Print per-change detail.")
+def geomdiff_cmd(
+    before_dir: Path,
+    after_dir: Path,
+    layers: tuple[str, ...],
+    move_tol: float,
+    gate_radius: float,
+    area_tol: float,
+    dust_area: float,
+    out_json: Path | None,
+    out_svg_dir: Path | None,
+    overwrite: bool,
+    fail_on_diff: bool,
+    quiet: bool,
+    verbose: bool,
+) -> None:
+    """Geometry-aware diff: attributed, resolution-independent changes.
+
+    Compares two directories of Gerber/Excellon layer files on the parsed
+    vector geometry and classifies each change as added, removed, moved,
+    or resized -- including sub-pixel displacements invisible to the
+    raster diff.
+    """
+    from gerberdiff.export.json_report import write_geometry_report
+    from gerberdiff.export.svg_export import write_geometry_svg
+    from gerberdiff.geometry import compute_geometry_diff
+    from gerberdiff.types import GerberParseError
+
+    def _on_diagnostic(path: Path, diag: Diagnostic) -> None:
+        loc = f" (line {diag.line})" if diag.line else ""
+        if diag.severity == DiagnosticSeverity.Warning and not quiet:
+            click.echo(f"warning: {path.name}: {diag.message}{loc}", err=True)
+        elif diag.severity == DiagnosticSeverity.Info and verbose:
+            click.echo(f"info: {path.name}: {diag.message}", err=True)
+
+    t_start = time.perf_counter()
+    try:
+        result = compute_geometry_diff(
+            before_dir,
+            after_dir,
+            layers=layers if layers else None,
+            move_tol_mm=move_tol,
+            gate_radius_mm=gate_radius,
+            area_tol=area_tol,
+            dust_area_mm2=dust_area,
+            on_diagnostic=_on_diagnostic,
+        )
+    except GerberParseError as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(2)
+    except OSError as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+    elapsed_total = time.perf_counter() - t_start
+
+    if verbose:
+        for layer_diff in result.layers:
+            click.echo(
+                f"  {layer_diff.name}: {len(layer_diff.changes)} changes, "
+                f"{layer_diff.unchanged_count} unchanged, "
+                f"+{layer_diff.added_area_mm2:.3f}/-{layer_diff.removed_area_mm2:.3f} mm^2"
+            )
+            for c in layer_diff.changes:
+                detail = f"    {c.kind} {c.op_kind} at ({c.centroid_x:.4f}, {c.centroid_y:.4f})"
+                if c.kind in ("moved", "resized") and c.dx_mm is not None and c.dy_mm is not None:
+                    detail += f"  d=({c.dx_mm:+.4f}, {c.dy_mm:+.4f}) mm"
+                if c.net_name:
+                    detail += f"  net={c.net_name}"
+                click.echo(detail)
+
+    tolerances = {
+        "move_tol_mm": move_tol,
+        "gate_radius_mm": gate_radius,
+        "area_tol": area_tol,
+        "dust_area_mm2": dust_area,
+    }
+
+    if out_json is not None:
+        try:
+            write_geometry_report(result, out_json, tolerances=tolerances, overwrite=overwrite)
+        except FileExistsError as exc:
+            click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
+            sys.exit(1)
+
+    if out_svg_dir is not None:
+        try:
+            for layer_diff in result.layers:
+                write_geometry_svg(
+                    layer_diff,
+                    out_svg_dir / f"{layer_diff.name}_geomdiff.svg",
+                    overwrite=overwrite,
+                )
+        except FileExistsError as exc:
+            click.echo(f"error: {exc}  (use --overwrite to replace)", err=True)
+            sys.exit(1)
+
+    if not quiet:
+        changed_layers = sum(1 for layer_diff in result.layers if layer_diff.has_changes)
+        total_changes = sum(len(layer_diff.changes) for layer_diff in result.layers)
+        click.echo(
+            f"geomdiff: {changed_layers}/{len(result.layers)} layers changed, "
+            f"{total_changes} changes  ({elapsed_total * 1000:.0f} ms)"
+        )
+        if out_json:
+            click.echo(f"report: {out_json}")
+
+    sys.exit(1 if fail_on_diff and result.has_changes else 0)
+
+
 if __name__ == "__main__":
     cli()

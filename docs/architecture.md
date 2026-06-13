@@ -2,34 +2,45 @@
 
 ## Overview
 
-gerberdiff is a visual raster diff tool for Gerber and Excellon PCB design files.
-It turns the question "what changed between two board revisions?" into visual overlays
-and machine-readable reports.
+gerberdiff is a diff tool for Gerber and Excellon PCB design files. It turns
+the question "what changed between two board revisions?" into visual overlays
+and machine-readable reports via two complementary engines that share the
+same parse layer:
 
-The codebase is structured as four sequential pipeline stages:
+- the **raster engine** (`render/` + `diff/`) -- Cairo rasterisation + pixel
+  XOR; produces visual overlay PNGs and screen-space changed regions;
+- the **geometry engine** (`geometry/`) -- shapely vector geometry; produces
+  resolution-independent, attributed changes (`moved`/`resized`/`added`/
+  `removed`) and is Cairo-free. See [geometry-diff.md](geometry-diff.md).
 
 ```
-Gerber/Excellon files
-        |
-        v
-  +-------------+
-  |    parse/   |  tokenise -> state machine -> ParsedImage IR
-  +------+------+
-         |  ParsedImage
-         v
-  +-------------+
-  |   render/   |  viewport -> compile draw-ops -> Cairo rasterise -> numpy array
-  +------+------+
-         |  numpy BGRA uint8 arrays (H x W x 4)
-         v
-  +-------------+
-  |    diff/    |  XOR pixel buffers -> scipy CCL -> world-space regions
-  +------+------+
-         |  DiffResult
-         v
-  +-------------+
-  |   export/   |  JSON report, overlay PNG
-  +-------------+
+                Gerber/Excellon files
+                         |
+                         v
+                  +-------------+
+                  |    parse/   |  tokenise -> state machine -> ParsedImage IR
+                  +------+------+
+                         |  ParsedImage
+            +------------+--------------+
+            |                           |
+            v                           v
+  +-------------+              +---------------+
+  |   render/   |              |   geometry/   |  expand ops -> shapely,
+  |  viewport ->|              |  signatures ->|  exact cancellation,
+  |  Cairo ->   |              |  boolean diff |  KD-tree attribution
+  |  numpy      |              +-------+-------+
+  +------+------+                      |
+         |  numpy BGRA                 |  GeometryDiffResult
+         v                             |
+  +-------------+                      |
+  |    diff/    |  XOR -> scipy CCL    |
+  +------+------+                      |
+         |  DiffResult                 |
+         +------------+----------------+
+                      v
+               +-------------+
+               |   export/   |  JSON v1/v2, overlay PNG, SVG
+               +-------------+
 ```
 
 ---
@@ -64,19 +75,33 @@ Gerber/Excellon files
 | `diff_engine.py`   | Renders both images to a shared viewport, XORs RGB channels, runs scipy CCL, returns `SingleLayerDiff`     |
 | `layer_matcher.py` | Pairs files from two directories by stem; classifies each by `LayerType`; returns sorted `list[LayerPair]` |
 
+### `gerberdiff/geometry/`
+
+| File                | Purpose                                                                                                       |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `primitives.py`     | Adaptive-tessellation shapely shape builders (circle, rect, obround, n-gon, arc sampling)                      |
+| `macro_geom.py`     | Macro primitives -> shapely with spec-compliant exposure scoping and rotation                                  |
+| `expand.py`         | Flash/stroke/region expansion: exact Minkowski strokes, even-odd regions                                       |
+| `layer_geometry.py` | Lazy `ExpandedOp` assembly: source-based signatures, polarity replay, transforms, S&R, block flattening        |
+| `geom_diff.py`      | Boolean added/removed material with exact-cancellation fast path                                               |
+| `attribute.py`      | Exact + KD-tree matching; classifies `moved` / `resized` / `added` / `removed`                                 |
+| `driver.py`         | `compute_geometry_diff`: directory pairing (reuses `layer_matcher`), per-layer orchestration                   |
+| `types.py`          | Public result types: `GeometryChange`, `LayerGeometryDiff`, `GeometryDiffResult`                               |
+
 ### `gerberdiff/export/`
 
 | File             | Purpose                                                                                          |
 | ---------------- | ------------------------------------------------------------------------------------------------ |
-| `json_report.py` | Builds a versioned JSON diff report from a `DiffResult`                                          |
+| `json_report.py` | Builds versioned JSON diff reports: v1 from a `DiffResult`, v2 from a `GeometryDiffResult`       |
 | `png_export.py`  | Builds a colour-coded overlay PNG: red = removed, green = added, yellow = changed, grey = common |
+| `svg_export.py`  | Cairo-free SVG overlay for geometry diffs (red/green/blue/orange change kinds)                   |
 
 ### `gerberdiff/`
 
-| File       | Purpose                                                         |
-| ---------- | --------------------------------------------------------------- |
-| `types.py` | All shared IR dataclasses and enums (see below)                 |
-| `cli.py`   | Click entry point; three subcommands: `parse`, `render`, `diff` |
+| File       | Purpose                                                                      |
+| ---------- | ----------------------------------------------------------------------------- |
+| `types.py` | All shared IR dataclasses and enums (see below)                              |
+| `cli.py`   | Click entry point; subcommands: `parse`, `render`, `diff`, `geomdiff`        |
 
 ---
 
@@ -145,7 +170,10 @@ shared viewport so both images are aligned before pixel comparison.
 
 ---
 
-## Diff algorithm
+## Raster diff algorithm
+
+The geometry engine's algorithm is documented separately in
+[geometry-diff.md](geometry-diff.md); it shares step 1 (layer matching).
 
 1. **Layer matching** (`layer_matcher.py`) -- pairs files from two directories by file stem.
    Files present only in one directory are recorded as `status="added"` or `"removed"`.

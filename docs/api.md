@@ -68,3 +68,37 @@ from gerberdiff import (
 
 See `gerberdiff/types.py` for field-level documentation. Coordinate values are in
 **inches** throughout. See [schema.md](schema.md) for the JSON report format.
+
+## Geometry diffing
+
+```python
+from pathlib import Path
+import gerberdiff
+
+result = gerberdiff.compute_geometry_diff(
+    Path("before/"),
+    Path("after/"),
+    move_tol_mm=0.005,      # min displacement reported as "moved"
+    gate_radius_mm=0.2,     # max distance to pair two objects
+    area_tol=0.01,          # relative area delta counted as same dims
+    dust_area_mm2=1e-6,     # boolean-diff noise floor
+)
+print(f"has_changes={result.has_changes}")
+for layer in result.layers:
+    print(f"  {layer.name}: {len(layer.changes)} changes, "
+          f"{layer.unchanged_count} unchanged, "
+          f"+{layer.added_area_mm2:.3f}/-{layer.removed_area_mm2:.3f} mm^2")
+    for change in layer.changes:
+        print(f"    {change.kind} {change.op_kind} "
+              f"at ({change.centroid_x:.4f}, {change.centroid_y:.4f})")
+```
+
+`GeometryChange` carries the classification (`kind`), the drawing-op kind
+(`op_kind`), centroid (inches), area (mm^2), displacement `dx_mm`/`dy_mm`
+for moved/resized changes, the net name when `%TO.N%` attributes are
+present, and the before/after shapely geometry (`before_geom`/`after_geom`)
+for programmatic use. The geometry pipeline does not require Cairo.
+
+Geometry types: `GeometryChange`, `LayerGeometryDiff`, `GeometryDiffResult`
+(see `gerberdiff/geometry/types.py`). Tolerance semantics are documented in
+[geometry-diff.md](geometry-diff.md).

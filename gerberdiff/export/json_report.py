@@ -1,10 +1,14 @@
 """Export diff results as a versioned JSON report.
 
-Schema (version 1)
-------------------
+Schemas
+-------
+- Version 1: raster pixel diff (``DiffResult``).
+- Version 2: geometry diff (``GeometryDiffResult``), ``"mode": "geometry"``.
+
 See ``docs/schema.md`` for canonical documentation.
 
-All coordinate values are in **inches**.
+Coordinate values are in **inches**; geometry areas are in **mm^2** and
+displacements in **mm** (see ``gerberdiff/geometry/types.py``).
 """
 
 from __future__ import annotations
@@ -13,9 +17,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from gerberdiff.geometry.types import GeometryChange, GeometryDiffResult, LayerGeometryDiff
 from gerberdiff.types import DiffResult, LayerDiffResult, LayerStatus, Region
 
 _SCHEMA_VERSION = 1
+_GEOMETRY_SCHEMA_VERSION = 2
 _GENERATOR = "gerberdiff"
 
 
@@ -64,8 +70,90 @@ def write_report(diff_result: DiffResult, output_path: Path, overwrite: bool = F
 
 
 # ---------------------------------------------------------------------------
+# Geometry report (schema version 2)
+# ---------------------------------------------------------------------------
+
+
+def build_geometry_report(
+    result: GeometryDiffResult,
+    tolerances: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Serialize a geometry diff result to a JSON-compatible dictionary.
+
+    *tolerances* (optional) records the classification thresholds used, for
+    reproducibility (keys: ``move_tol_mm``, ``gate_radius_mm``, ``area_tol``,
+    ``dust_area_mm2``).
+    """
+    report: dict[str, Any] = {
+        "version": _GEOMETRY_SCHEMA_VERSION,
+        "generator": _GENERATOR,
+        "mode": "geometry",
+        "summary": {
+            "changed_layers": sum(1 for layer in result.layers if layer.has_changes),
+            "total_changes": sum(len(layer.changes) for layer in result.layers),
+            "has_changes": result.has_changes,
+        },
+        "layers": [_serialize_geometry_layer(layer) for layer in result.layers],
+    }
+    if tolerances is not None:
+        report["tolerances"] = tolerances
+    return report
+
+
+def write_geometry_report(
+    result: GeometryDiffResult,
+    output_path: Path,
+    tolerances: dict[str, float] | None = None,
+    overwrite: bool = False,
+) -> None:
+    """Write the geometry JSON report to *output_path*.
+
+    Raises
+    ------
+    FileExistsError
+        If *output_path* already exists and *overwrite* is ``False``.
+    """
+    if output_path.exists() and not overwrite:
+        raise FileExistsError(f"output file already exists: {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    report = build_geometry_report(result, tolerances)
+    output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _serialize_geometry_layer(layer: LayerGeometryDiff) -> dict[str, Any]:
+    return {
+        "name": layer.name,
+        "status": layer.status,
+        "layer_type": layer.layer_type,
+        "unchanged_count": layer.unchanged_count,
+        "added_area_mm2": round(layer.added_area_mm2, 6),
+        "removed_area_mm2": round(layer.removed_area_mm2, 6),
+        "counts": {
+            "added": layer.count("added"),
+            "removed": layer.count("removed"),
+            "moved": layer.count("moved"),
+            "resized": layer.count("resized"),
+        },
+        "changes": [_serialize_geometry_change(c) for c in layer.changes],
+    }
+
+
+def _serialize_geometry_change(c: GeometryChange) -> dict[str, Any]:
+    return {
+        "kind": c.kind,
+        "op_kind": c.op_kind,
+        "centroid_x": c.centroid_x,
+        "centroid_y": c.centroid_y,
+        "area_mm2": round(c.area_mm2, 6),
+        "dx_mm": round(c.dx_mm, 6) if c.dx_mm is not None else None,
+        "dy_mm": round(c.dy_mm, 6) if c.dy_mm is not None else None,
+        "net": c.net_name,
+    }
 
 
 def _serialize_layer(lr: LayerDiffResult) -> dict[str, Any]:
