@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Documentation site** at <https://cameronbrooks11.github.io/gerberdiff/>
+  -- MkDocs + Material with mkdocstrings API reference, MathJax for the
+  LaTeX notation already used in the docs, and Changelog/Contributing
+  included via snippets. Built strictly and deployed to GitHub Pages by
+  `.github/workflows/docs.yml` on every push to `main` that touches docs
+  or the package.
+
 - Edge-case test suite for the geometry engine's guard paths: block
   nesting depth limit, invalid layer indices, zero-dimension apertures,
   degenerate regions and strokes, macro flash dispatch, the

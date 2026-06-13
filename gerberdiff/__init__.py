@@ -1,3 +1,12 @@
+"""Diff tool for Gerber/Excellon PCB design files.
+
+Two complementary engines share one parse layer: the raster engine
+(``compute_diff`` / ``compute_full_diff``) renders revisions with Cairo and
+XORs pixels for visual overlays; the geometry engine
+(``compute_geometry_diff``) computes resolution-independent, attributed
+changes on the vector geometry and is Cairo-free.
+"""
+
 __version__ = "0.29.1"
 
 from typing import TYPE_CHECKING, Any
