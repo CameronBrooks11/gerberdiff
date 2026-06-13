@@ -109,4 +109,5 @@ EOF
 ## License
 
 By contributing you agree that your contributions will be licensed under the
-[Apache-2.0](LICENSE) licence.
+[Apache-2.0](https://github.com/CameronBrooks11/gerberdiff/blob/main/LICENSE)
+licence.

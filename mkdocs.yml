@@ -1,0 +1,87 @@
+site_name: gerberdiff
+site_description: >-
+  Diff tool for Gerber/Excellon PCB files: visual raster overlays and
+  attributed vector-geometry change analysis.
+site_url: https://cameronbrooks11.github.io/gerberdiff/
+repo_url: https://github.com/CameronBrooks11/gerberdiff
+repo_name: CameronBrooks11/gerberdiff
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Guide:
+      - CLI reference: cli.md
+      - Python API: api.md
+      - JSON report schemas: schema.md
+  - Internals:
+      - Architecture: architecture.md
+      - Geometry diff engine: geometry-diff.md
+  - API reference:
+      - Package: reference/package.md
+      - Geometry types: reference/geometry.md
+  - Project:
+      - Changelog: changelog.md
+      - Contributing: contributing.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+
+watch:
+  - gerberdiff

@@ -52,6 +52,14 @@ dev = [
     "scipy-stubs>=1.17.1.4",
     "types-shapely>=2.1",
 ]
+# Documentation site; built and deployed by .github/workflows/docs.yml.
+# Material 9.x is pinned to MkDocs 1.x (MkDocs 2.0 is an incompatible
+# rewrite); the maintainers' successor (Zensical) is the migration path
+# once its plugin support matures.
+docs = [
+    "mkdocs-material>=9.5,<10",
+    "mkdocstrings[python]>=0.26",
+]
 
 [project.scripts]
 gerberdiff = "gerberdiff.cli:cli"
