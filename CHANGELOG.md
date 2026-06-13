@@ -86,6 +86,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Raster-engine tests skip cleanly when cairo is unavailable, which
   fixes the previously failing Windows CI job.
 
+- **Project renamed from `gerberdelta` to `gerberdiff`** (2026-04-25,
+  unreleased at the time). 0.29.0 is the first published release under
+  the new name; no release was ever made as `gerberdelta`. The rename
+  window also included: docs reorganised to lowercase-kebab filenames
+  with split CLI/API references, an ASCII-only character policy sweep,
+  LaTeX math notation for equations in docs, and strict mypy
+  annotations across the test suite.
+
+## [0.28.0] - 2026-04-25
+
+### Added
+
+- **Render/diff regression coverage** -- 411 lines of new tests across
+  the renderer, draw-ops, diff engine, and parser: incremental (G91)
+  coordinates, step-and-repeat tiling, layer transforms (LM/LR/LS),
+  clear-polarity compositing, region merge cascade, polygon aperture
+  rotation, macro `unit_scale`, `alignment_offset`, and pixel-level
+  render verification. No production code changes.
+
+## [0.27.0] - 2026-04-25
+
+### Changed
+
+- **`CompiledRender` cached per `BlockAperture`** -- repeated flashes of
+  the same block aperture no longer recompile its draw-op groups on
+  every flash. The cache is keyed by `id(block_ap)` and evicted by a
+  `weakref` finalizer when the aperture is garbage-collected, so stale
+  ids cannot produce false hits.
+
+## [0.26.0] - 2026-04-25
+
+### Fixed
+
+- **Rect/obround stroke width** -- D01 strokes with rectangle or obround
+  apertures are drawn with line width `max(width, height)` instead of
+  `min(width, height)`, so traces whose long axis aligns with the stroke
+  direction (the common case) are no longer under-stroked; documented as
+  an approximation pending geometry-aware rendering.
+- **Macro evaluation failures no longer abort the render** -- a macro
+  aperture whose primitive evaluation raises is skipped with a
+  `UserWarning` instead of crashing the whole render pass.
+
+## [0.25.0] - 2026-04-25
+
+### Fixed
+
+- **Parser correctness sweep** --
+  - arc bounding boxes account for axis-extrema crossings (0/90/180/270
+    degrees), not just the endpoints;
+  - step-and-repeat tiles expand the image bounding box and respect
+    layer polarity;
+  - block aperture (`%AB%`) parsing isolates state correctly (nested
+    apertures/layers no longer leak into the parent image);
+  - `_apply_format` no longer truncates coordinates with more integer
+    digits than the format statement declares;
+  - referencing an unknown macro in an aperture definition is an
+    `Error`-severity diagnostic (was silently tolerated).
+
+## [0.24.0] - 2026-04-25
+
+### Changed
+
+- **`DiffResult.has_changes` is a computed property** -- derived from the
+  layer results instead of stored at construction, so it cannot drift
+  from the data.
+- **Excellon parser refactored** -- the nonlocal-closure state pattern is
+  replaced with explicit local parser state; behaviour unchanged.
+
+## [0.23.0] - 2026-04-25
+
+### Added
+
+- **`compute_full_diff`** -- directory-vs-directory diff as a single
+  public API call (parse, match, diff, assemble `DiffResult`), with
+  `overlay_callback` and `on_diagnostic` hooks.
+- **All IR and result types exported** from the top-level package with
+  an `__all__` list; README gains API examples.
+
+### Changed
+
+- `diff_cmd` rewritten on top of `compute_full_diff` (the CLI no longer
+  duplicates the orchestration logic).
+
+## [0.22.0] - 2026-04-25
+
+### Added
+
+- **`docs/schema.md`** -- canonical JSON report schema documentation.
+- **CI hardening** -- coverage gate (`--cov-fail-under=90`), a Windows
+  test job in the matrix, and a non-ASCII character check.
+
+### Changed
+
+- **`EXCELLON_SUFFIXES` is public** -- renamed from `_EXCELLON_SUFFIXES`
+  in `diff/layer_matcher.py`; it is part of the de-facto API used by the
+  CLI and downstream callers.
+
 ## [0.21.0] - 2026-04-25
 
 ### Changed
@@ -250,6 +347,10 @@ saved_bbox, saved_layer_idx)` with a named `_BlockFrame` dataclass so that
 ## [0.15.0] - 2026-04-25
 
 ### Changed
+
+- **License changed from AGPL-3.0 to Apache-2.0** so the tool can be
+  used commercially without copyleft obligations. (Landed immediately
+  before this version's other changes; recorded here for completeness.)
 
 - **Domain model rename** -- `Net` renamed to `DrawOp` and `NetState` renamed to `CoordState`
   throughout the codebase. The term "net" belongs to EDA net-list semantics; the IR types
@@ -540,18 +641,32 @@ merge_tolerance) -> SingleLayerDiff`.
 
 [Unreleased]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.29.1...HEAD
 [0.29.1]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.29.0...v0.29.1
-[0.29.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.21.0...v0.29.0
-[0.14.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.13.0...v0.14.0
-[0.13.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.12.0...v0.13.0
-[0.12.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.11.0...v0.12.0
-[0.11.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.10.0...v0.11.0
-[0.10.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.9.0...v0.10.0
-[0.9.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.8.0...v0.9.0
-[0.8.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/CameronBrooks11/gerberdiff/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/CameronBrooks11/gerberdiff/releases/tag/v0.1.0
+[0.29.0]: https://github.com/CameronBrooks11/gerberdiff/compare/9ffd4c8f...v0.29.0
+[0.28.0]: https://github.com/CameronBrooks11/gerberdiff/compare/b6b6b98d...9ffd4c8f
+[0.27.0]: https://github.com/CameronBrooks11/gerberdiff/compare/963eb957...b6b6b98d
+[0.26.0]: https://github.com/CameronBrooks11/gerberdiff/compare/6162e435...963eb957
+[0.25.0]: https://github.com/CameronBrooks11/gerberdiff/compare/e2519ec8...6162e435
+[0.24.0]: https://github.com/CameronBrooks11/gerberdiff/compare/91c154d4...e2519ec8
+[0.23.0]: https://github.com/CameronBrooks11/gerberdiff/compare/458734f9...91c154d4
+[0.22.0]: https://github.com/CameronBrooks11/gerberdiff/compare/1c96a7b8...458734f9
+[0.21.0]: https://github.com/CameronBrooks11/gerberdiff/compare/4d1201fe...1c96a7b8
+[0.20.0]: https://github.com/CameronBrooks11/gerberdiff/compare/ba9a5015...4d1201fe
+[0.19.0]: https://github.com/CameronBrooks11/gerberdiff/compare/c502171a...ba9a5015
+[0.18.0]: https://github.com/CameronBrooks11/gerberdiff/compare/10f8f392...c502171a
+[0.17.0]: https://github.com/CameronBrooks11/gerberdiff/compare/b04813ea...10f8f392
+[0.16.0]: https://github.com/CameronBrooks11/gerberdiff/compare/3044033b...b04813ea
+[0.15.0]: https://github.com/CameronBrooks11/gerberdiff/compare/9b4e3401...3044033b
+[0.14.0]: https://github.com/CameronBrooks11/gerberdiff/compare/1a399ea2...9b4e3401
+[0.13.0]: https://github.com/CameronBrooks11/gerberdiff/compare/c0672ea8...1a399ea2
+[0.12.0]: https://github.com/CameronBrooks11/gerberdiff/compare/1bbfb235...c0672ea8
+[0.11.0]: https://github.com/CameronBrooks11/gerberdiff/compare/2d1573ad...1bbfb235
+[0.10.0]: https://github.com/CameronBrooks11/gerberdiff/compare/6691b195...2d1573ad
+[0.9.0]: https://github.com/CameronBrooks11/gerberdiff/compare/2e944edc...6691b195
+[0.8.0]: https://github.com/CameronBrooks11/gerberdiff/compare/46b463de...2e944edc
+[0.7.0]: https://github.com/CameronBrooks11/gerberdiff/compare/5b9212fa...46b463de
+[0.6.0]: https://github.com/CameronBrooks11/gerberdiff/compare/e12ff13f...5b9212fa
+[0.5.0]: https://github.com/CameronBrooks11/gerberdiff/compare/6330d0cb...e12ff13f
+[0.4.0]: https://github.com/CameronBrooks11/gerberdiff/compare/f63a51a3...6330d0cb
+[0.3.0]: https://github.com/CameronBrooks11/gerberdiff/compare/3f1d1909...f63a51a3
+[0.2.0]: https://github.com/CameronBrooks11/gerberdiff/compare/674251dd...3f1d1909
+[0.1.0]: https://github.com/CameronBrooks11/gerberdiff/compare/2eeb692...674251dd
